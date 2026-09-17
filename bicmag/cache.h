@@ -36,6 +36,9 @@ gboolean bicmag_cache_upsert_attachment(BicMagCache *cache,
 GPtrArray *bicmag_cache_list_attachments(BicMagCache *cache,
                                           const gchar *notice_id,
                                           GError **error);
+gboolean bicmag_cache_remove_expired(BicMagCache *cache,
+                                     const gchar *today,
+                                     GError **error);
 
 G_END_DECLS
 

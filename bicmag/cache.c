@@ -34,10 +34,9 @@ bicmag_cache_open(const gchar *path, GError **error)
         "deadline_date TEXT, status TEXT, detail_url TEXT, eligible INTEGER,"
         "synced_at INTEGER NOT NULL);"
         "CREATE TABLE IF NOT EXISTS attachments (id TEXT PRIMARY KEY, notice_id TEXT NOT NULL REFERENCES notices(id) ON DELETE CASCADE, name TEXT, download_url TEXT, local_path TEXT, sha256 TEXT, synced_at INTEGER NOT NULL);"
-        "CREATE TABLE IF NOT EXISTS notice_pdf_hashes (notice_id TEXT NOT NULL, sha256 TEXT NOT NULL, UNIQUE(notice_id, sha256));"
+        "CREATE TABLE IF NOT EXISTS notice_pdf_hashes (notice_id TEXT NOT NULL REFERENCES notices(id) ON DELETE CASCADE, sha256 TEXT NOT NULL, UNIQUE(notice_id, sha256));"
         "CREATE VIRTUAL TABLE IF NOT EXISTS notice_fts USING fts5("
-        "notice_id UNINDEXED, title, ministry, content);"
-        "PRAGMA user_version = 1;";
+        "notice_id UNINDEXED, title, ministry, content);";
 
     if (path == NULL) {
         g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
@@ -53,8 +52,16 @@ bicmag_cache_open(const gchar *path, GError **error)
     }
     cache = g_new0(BicMagCache, 1);
     cache->database = database;
-    if (!bicmag_cache_exec(cache, schema, error))
+    sqlite3_stmt *version_statement = NULL;
+    if (sqlite3_prepare_v2(database, "PRAGMA user_version;", -1, &version_statement, NULL) != SQLITE_OK || sqlite3_step(version_statement) != SQLITE_ROW) {
+        sqlite3_finalize(version_statement); g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "read cache schema version"); return NULL;
+    }
+    gint version = sqlite3_column_int(version_statement, 0); sqlite3_finalize(version_statement);
+    if (version > 1) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "unsupported cache schema version: %d", version); return NULL; }
+    if (!bicmag_cache_exec(cache, "PRAGMA foreign_keys = ON;", error) || !bicmag_cache_exec(cache, "BEGIN IMMEDIATE;", error) || !bicmag_cache_exec(cache, schema, error) || !bicmag_cache_exec(cache, "CREATE INDEX IF NOT EXISTS attachments_notice_id_idx ON attachments(notice_id); PRAGMA user_version = 1;", error) || !bicmag_cache_exec(cache, "COMMIT;", error)) {
+        bicmag_cache_exec(cache, "ROLLBACK;", NULL);
         return NULL;
+    }
     return g_steal_pointer(&cache);
 }
 
@@ -91,6 +98,19 @@ bicmag_cache_list_attachments(BicMagCache *cache, const gchar *notice_id,
     }
     if (code != SQLITE_DONE) { bicmag_cache_set_error(error, cache->database, "list attachments"); sqlite3_finalize(statement); return NULL; }
     sqlite3_finalize(statement); return g_steal_pointer(&result);
+}
+
+gboolean
+bicmag_cache_remove_expired(BicMagCache *cache, const gchar *today, GError **error)
+{
+    if (cache == NULL || today == NULL || *today == '\0') { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "cache and today are required"); return FALSE; }
+    sqlite3_stmt *statement = NULL;
+    if (!bicmag_cache_exec(cache, "BEGIN IMMEDIATE;", error)) return FALSE;
+    const gchar *dependent_sql[] = { "DELETE FROM notice_fts WHERE notice_id IN (SELECT id FROM notices WHERE deadline_date IS NOT NULL AND deadline_date <> '' AND deadline_date <= ?);", "DELETE FROM notice_pdf_hashes WHERE notice_id IN (SELECT id FROM notices WHERE deadline_date IS NOT NULL AND deadline_date <> '' AND deadline_date <= ?);" };
+    for (guint i = 0; i < 2; i++) { if (sqlite3_prepare_v2(cache->database, dependent_sql[i], -1, &statement, NULL) != SQLITE_OK) { bicmag_cache_set_error(error, cache->database, "prepare expired index cleanup"); bicmag_cache_exec(cache, "ROLLBACK;", NULL); return FALSE; } sqlite3_bind_text(statement, 1, today, -1, SQLITE_TRANSIENT); if (sqlite3_step(statement) != SQLITE_DONE) { bicmag_cache_set_error(error, cache->database, "remove expired index"); sqlite3_finalize(statement); bicmag_cache_exec(cache, "ROLLBACK;", NULL); return FALSE; } sqlite3_finalize(statement); }
+    if (sqlite3_prepare_v2(cache->database, "DELETE FROM notices WHERE deadline_date IS NOT NULL AND deadline_date <> '' AND deadline_date <= ?;", -1, &statement, NULL) != SQLITE_OK) { bicmag_cache_set_error(error, cache->database, "prepare expired cleanup"); bicmag_cache_exec(cache, "ROLLBACK;", NULL); return FALSE; }
+    sqlite3_bind_text(statement, 1, today, -1, SQLITE_TRANSIENT);
+    gboolean ok = sqlite3_step(statement) == SQLITE_DONE; if (!ok) bicmag_cache_set_error(error, cache->database, "remove expired notices"); sqlite3_finalize(statement); if (!ok) { bicmag_cache_exec(cache, "ROLLBACK;", NULL); return FALSE; } return bicmag_cache_exec(cache, "COMMIT;", error);
 }
 
 void
