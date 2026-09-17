@@ -20,6 +20,7 @@ GQuark bicmag_pdf_error_quark(void);
 gboolean bicmag_pdf_extract_text(const gchar *path,
                                  gchar **text_out,
                                  GError **error);
+gboolean bicmag_pdf_has_signature(const gchar *path, GError **error);
 
 G_END_DECLS
 

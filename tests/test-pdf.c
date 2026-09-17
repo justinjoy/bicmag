@@ -80,6 +80,20 @@ test_text_extraction(void)
 }
 
 static void
+test_pdf_signature(void)
+{
+    g_autofree gchar *fixture = g_test_build_filename(G_TEST_BUILT, "sample.pdf", NULL);
+    g_autofree gchar *path = g_build_filename(g_get_tmp_dir(), "bicmag-not-pdf.bin", NULL);
+    g_autoptr(GError) error = NULL;
+    g_assert_true(bicmag_pdf_has_signature(fixture, &error));
+    g_assert_no_error(error);
+    g_assert_true(g_file_set_contents(path, "hello", -1, &error));
+    g_assert_false(bicmag_pdf_has_signature(path, &error));
+    g_assert_error(error, BICMAG_PDF_ERROR, BICMAG_PDF_ERROR_PARSE);
+    g_remove(path);
+}
+
+static void
 test_notice_date_rules(void)
 {
     g_autoptr(GDateTime) now = g_date_time_new_local(2026, 9, 17, 12, 0, 0);
@@ -234,6 +248,7 @@ main(int argc, char **argv)
     g_test_add_func("/pdf/missing-file", test_missing_file);
     g_test_add_func("/pdf/corrupt-file", test_corrupt_file);
     g_test_add_func("/pdf/text-extraction", test_text_extraction);
+    g_test_add_func("/pdf/signature", test_pdf_signature);
     g_test_add_func("/notice/date-rules", test_notice_date_rules);
     g_test_add_func("/cache/local-search", test_local_notice_cache);
     g_test_add_func("/ntis/client", test_ntis_client);

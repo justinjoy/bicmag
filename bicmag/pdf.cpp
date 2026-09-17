@@ -5,6 +5,7 @@
 #include <exception>
 #include <string>
 #include <vector>
+#include <fstream>
 
 GQuark
 bicmag_pdf_error_quark(void)
@@ -19,6 +20,21 @@ bicmag_pdf_set_error(GError **error,
 {
     if (error != nullptr && *error == nullptr)
         g_set_error(error, BICMAG_PDF_ERROR, code, "%s", message);
+}
+
+extern "C" gboolean
+bicmag_pdf_has_signature(const gchar *path, GError **error)
+{
+    if (path == nullptr) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_INVALID_ARGUMENT, "path is required"); return FALSE; }
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_OPEN, "cannot open PDF file"); return FALSE; }
+    char header[5] = {};
+    stream.read(header, sizeof header);
+    if (stream.gcount() != 5 || std::string(header, 5) != "%PDF-") {
+        bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_PARSE, "file has no PDF signature");
+        return FALSE;
+    }
+    return TRUE;
 }
 
 extern "C" gboolean
