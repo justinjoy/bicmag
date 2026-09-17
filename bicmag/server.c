@@ -141,6 +141,29 @@ bicmag_mcp_handler(SoupServer *server, SoupServerMessage *message,
         json_builder_add_string_value(builder, "object");
         json_builder_end_object(builder);
         json_builder_end_object(builder);
+        json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "name");
+        json_builder_add_string_value(builder, "ntis_attachments");
+        json_builder_set_member_name(builder, "description");
+        json_builder_add_string_value(builder, "List locally cached NTIS attachments");
+        json_builder_set_member_name(builder, "inputSchema");
+        json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "type");
+        json_builder_add_string_value(builder, "object");
+        json_builder_set_member_name(builder, "properties");
+        json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "notice_id");
+        json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "type");
+        json_builder_add_string_value(builder, "string");
+        json_builder_end_object(builder);
+        json_builder_end_object(builder);
+        json_builder_set_member_name(builder, "required");
+        json_builder_begin_array(builder);
+        json_builder_add_string_value(builder, "notice_id");
+        json_builder_end_array(builder);
+        json_builder_end_object(builder);
+        json_builder_end_object(builder);
         json_builder_end_array(builder);
         json_builder_end_object(builder);
     }
@@ -152,9 +175,18 @@ bicmag_mcp_handler(SoupServer *server, SoupServerMessage *message,
         const gchar *query_text = arguments ? json_object_get_string_member_with_default(arguments,
                                                                                          "query",
                                                                                          "") : "";
+        const gchar *notice_id = arguments ?
+                                 json_object_get_string_member_with_default(arguments,
+                                                                            "notice_id", "") :
+                                 "";
         g_autoptr(GError) search_error = NULL;
         g_autoptr(GPtrArray) notices = NULL;
-        if (g_strcmp0(name, "ntis_list") == 0) {
+        g_autoptr(GPtrArray) attachments = NULL;
+        if (g_strcmp0(name, "ntis_attachments") == 0 && cache != NULL &&
+            *notice_id != '\0') {
+            attachments = bicmag_cache_list_attachments(cache, notice_id, &search_error);
+        }
+        else if (g_strcmp0(name, "ntis_list") == 0) {
             notices = bicmag_cache_list_notices(cache, &search_error);
         }
         else if (g_strcmp0(name, "ntis_search") == 0 && cache != NULL &&
@@ -167,13 +199,14 @@ bicmag_mcp_handler(SoupServer *server, SoupServerMessage *message,
             bicmag_mcp_error(message, id, -32602, "Invalid tools/call arguments");
             return;
         }
-        if (notices == NULL) { json_builder_end_object(builder);
-                               soup_server_message_set_status(message,
-                                                              SOUP_STATUS_INTERNAL_SERVER_ERROR,
-                                                              NULL);
-                               bicmag_mcp_error(message, id, -32603,
-                                                search_error ? search_error->message :
-                                                "Local search failed"); return; }
+        if ((g_strcmp0(name, "ntis_attachments") == 0 ? attachments == NULL : notices == NULL)) {
+            soup_server_message_set_status(message,
+                                           SOUP_STATUS_INTERNAL_SERVER_ERROR,
+                                           NULL);
+            bicmag_mcp_error(message, id, -32603,
+                             search_error ? search_error->message :
+                             "Local search failed"); return;
+        }
         json_builder_begin_object(builder); json_builder_set_member_name(builder, "content");
         json_builder_begin_array(builder); json_builder_begin_object(builder);
         json_builder_set_member_name(builder, "type");
@@ -185,16 +218,27 @@ bicmag_mcp_handler(SoupServer *server, SoupServerMessage *message,
                                                            g_date_time_get_month(now),
                                                            g_date_time_get_day_of_month(now),
                                                            0, 0, 0);
-        for (guint i = 0; i < notices->len;
-             i++) { BicMagNotice *notice = g_ptr_array_index(notices, i);
-                    g_autofree gchar *dday =
-                        bicmag_mcp_deadline_label(notice->deadline_date, today);
-                    g_string_append_printf(text, "%s\t%s\t%s\t%s\n", notice->id,
-                                           notice->deadline_date != NULL &&
-                                           *notice->deadline_date != '\0' ?
-                                           notice->deadline_date : "마감일 없음", dday,
-                                           notice->title);
-        } json_builder_add_string_value(builder, text->str); json_builder_end_object(builder);
+        if (g_strcmp0(name, "ntis_attachments") == 0) {
+            for (guint i = 0; i < attachments->len; i++) {
+                BicMagAttachment *attachment = g_ptr_array_index(attachments, i);
+                g_string_append_printf(text, "%s\t%s\t%s\t%s\n", attachment->id,
+                                       attachment->name, attachment->local_path != NULL ?
+                                       attachment->local_path : "미다운로드",
+                                       attachment->download_url);
+            }
+        }
+        else {
+            for (guint i = 0; i < notices->len;
+                 i++) { BicMagNotice *notice = g_ptr_array_index(notices, i);
+                        g_autofree gchar *dday =
+                            bicmag_mcp_deadline_label(notice->deadline_date, today);
+                        g_string_append_printf(text, "%s\t%s\t%s\t%s\n", notice->id,
+                                               notice->deadline_date != NULL &&
+                                               *notice->deadline_date != '\0' ?
+                                               notice->deadline_date : "마감일 없음", dday,
+                                               notice->title);}
+        }
+        json_builder_add_string_value(builder, text->str); json_builder_end_object(builder);
         json_builder_end_array(builder); json_builder_end_object(builder);
     }
     else {
