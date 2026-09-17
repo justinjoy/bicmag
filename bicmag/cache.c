@@ -33,6 +33,7 @@ bicmag_cache_open(const gchar *path, GError **error)
         "id TEXT PRIMARY KEY, title TEXT, ministry TEXT, receipt_date TEXT,"
         "deadline_date TEXT, status TEXT, detail_url TEXT, eligible INTEGER,"
         "synced_at INTEGER NOT NULL);"
+        "CREATE TABLE IF NOT EXISTS notice_pdf_hashes (notice_id TEXT NOT NULL, sha256 TEXT NOT NULL, UNIQUE(notice_id, sha256));"
         "CREATE VIRTUAL TABLE IF NOT EXISTS notice_fts USING fts5("
         "notice_id UNINDEXED, title, ministry, content);";
 
@@ -73,6 +74,7 @@ bicmag_cache_upsert_notice(BicMagCache *cache,
                             GError **error)
 {
     sqlite3_stmt *statement = NULL;
+    gchar *existing_content = NULL;
     const gchar *sql =
         "INSERT INTO notices(id,title,ministry,receipt_date,deadline_date,status,detail_url,eligible,synced_at)"
         " VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,"
@@ -106,6 +108,20 @@ bicmag_cache_upsert_notice(BicMagCache *cache,
         return FALSE;
     }
     sqlite3_finalize(statement);
+    if (sqlite3_prepare_v2(cache->database, "SELECT content FROM notice_fts WHERE notice_id = ? LIMIT 1;", -1, &statement, NULL) != SQLITE_OK) {
+        bicmag_cache_set_error(error, cache->database, "lookup notice index");
+        bicmag_cache_exec(cache, "ROLLBACK;", NULL);
+        return FALSE;
+    }
+    sqlite3_bind_text(statement, 1, notice->id, -1, SQLITE_TRANSIENT);
+    int lookup_result = sqlite3_step(statement);
+    if (lookup_result == SQLITE_ROW)
+        existing_content = g_strdup((const gchar *)sqlite3_column_text(statement, 0));
+    else if (lookup_result != SQLITE_DONE) {
+        bicmag_cache_set_error(error, cache->database, "lookup notice index");
+        sqlite3_finalize(statement); bicmag_cache_exec(cache, "ROLLBACK;", NULL); return FALSE;
+    }
+    sqlite3_finalize(statement);
     if (sqlite3_prepare_v2(cache->database,
             "DELETE FROM notice_fts WHERE notice_id = ?;",
             -1, &statement, NULL) != SQLITE_OK) {
@@ -131,7 +147,8 @@ bicmag_cache_upsert_notice(BicMagCache *cache,
     sqlite3_bind_text(statement, 1, notice->id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(statement, 2, notice->title, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(statement, 3, notice->ministry, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(statement, 4, notice->title, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 4, existing_content != NULL ? existing_content : notice->title, -1, SQLITE_TRANSIENT);
+    g_free(existing_content);
     if (sqlite3_step(statement) != SQLITE_DONE) {
         bicmag_cache_set_error(error, cache->database, "update notice index");
         sqlite3_finalize(statement);

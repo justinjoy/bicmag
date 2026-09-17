@@ -4,6 +4,7 @@
 #include "bicmag/ntis.h"
 #include "bicmag/list.h"
 #include "bicmag/attachment.h"
+#include "bicmag/index.h"
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -152,6 +153,15 @@ test_local_notice_cache(void)
     g_assert_cmpuint(results->len, ==, 1);
     g_assert_cmpstr(((BicMagNotice *)g_ptr_array_index(results, 0))->id, ==,
                     "notice-1");
+    g_autofree gchar *fixture = g_test_build_filename(G_TEST_BUILT, "sample.pdf", NULL);
+    g_assert_true(bicmag_index_pdf_notice(cache, "notice-1", fixture, &error));
+    g_clear_pointer(&results, g_ptr_array_unref);
+    results = bicmag_cache_search_notices(cache, "BicMag", &error);
+    g_assert_no_error(error);
+    g_assert_cmpuint(results->len, ==, 1);
+    g_clear_error(&error);
+    g_assert_false(bicmag_index_pdf_notice(cache, "missing", fixture, &error));
+    g_assert_error(error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND);
 }
 
 static void

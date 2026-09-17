@@ -39,10 +39,14 @@ cache_lib = static_library('bicmag-cache',
 ntis_lib = static_library('bicmag-ntis', ['bicmag/ntis.c', 'bicmag/list.c', 'bicmag/attachment.c'],
   include_directories : inc, dependencies : [glib_dep, gio_dep, libsoup_dep])
 
+index_lib = static_library('bicmag-index', 'bicmag/index.c',
+  include_directories : inc, link_with : [pdf_lib, cache_lib],
+  dependencies : [glib_dep, gio_dep, sqlite_dep])
+
 pdf_test = executable('test-bicmag-pdf',
   'tests/test-pdf.c',
   include_directories : inc,
-  link_with : [pdf_lib, notice_lib, cache_lib, ntis_lib],
+  link_with : [pdf_lib, notice_lib, cache_lib, ntis_lib, index_lib],
   dependencies : [glib_dep, gio_dep, libsoup_dep, sqlite_dep],
   link_language : 'cpp',
 )
