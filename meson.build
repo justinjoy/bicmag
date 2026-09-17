@@ -57,7 +57,8 @@ configure_file(input : 'tests/data/sample.pdf', output : 'sample.pdf', copy : tr
 test('bicmag-pdf', pdf_test)
 
 bicmag_exe = executable('bicmag', 'bicmag/server.c', include_directories : inc,
-  dependencies : [glib_dep, gio_dep, libsoup_dep, json_dep])
+  link_with : [cache_lib, notice_lib, ntis_lib],
+  dependencies : [glib_dep, gio_dep, libsoup_dep, json_dep, sqlite_dep])
 
 uncrustify = find_program('uncrustify', version : '>=0.83.0', required : false)
 if uncrustify.found()

@@ -3,6 +3,7 @@
 #include <json-glib/json-glib.h>
 #include <libsoup/soup.h>
 #include <string.h>
+#include "bicmag/cache.h"
 
 static void
 bicmag_mcp_handler(SoupServer*server, SoupServerMessage*message,
@@ -10,7 +11,7 @@ bicmag_mcp_handler(SoupServer*server, SoupServerMessage*message,
 {
     (void)server;
     (void)query;
-    (void)user_data;
+    BicMagCache*cache = user_data;
     if (g_strcmp0(path, "/mcp") != 0) {
         soup_server_message_set_status(message, SOUP_STATUS_NOT_FOUND, NULL);
         return;
@@ -65,8 +66,56 @@ bicmag_mcp_handler(SoupServer*server, SoupServerMessage*message,
         json_builder_begin_object(builder);
         json_builder_set_member_name(builder, "tools");
         json_builder_begin_array(builder);
+        json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "name");
+        json_builder_add_string_value(builder, "ntis_search");
+        json_builder_set_member_name(builder, "description");
+        json_builder_add_string_value(builder, "Search locally cached NTIS notices");
+        json_builder_set_member_name(builder, "inputSchema"); json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "type");
+        json_builder_add_string_value(builder, "object");
+        json_builder_set_member_name(builder, "properties"); json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "query"); json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "type");
+        json_builder_add_string_value(builder, "string"); json_builder_end_object(builder);
+        json_builder_end_object(builder); json_builder_set_member_name(builder, "required");
+        json_builder_begin_array(builder); json_builder_add_string_value(builder, "query");
+        json_builder_end_array(builder); json_builder_end_object(builder);
+        json_builder_end_object(builder);
         json_builder_end_array(builder);
         json_builder_end_object(builder);
+    }
+    else if (g_strcmp0(method, "tools/call") == 0) {
+        JsonObject*params = json_object_get_object_member(object, "params");
+        const gchar*name = params ? json_object_get_string_member_with_default(params, "name",
+                                                                               "") : "";
+        JsonObject*arguments = params ? json_object_get_object_member(params, "arguments") : NULL;
+        const gchar*query_text = arguments ? json_object_get_string_member_with_default(arguments,
+                                                                                        "query",
+                                                                                        "") : "";
+        if (g_strcmp0(name,
+                      "ntis_search") != 0 || cache == NULL ||
+            *query_text == '\0') { json_builder_end_object(builder);
+                                   soup_server_message_set_status(message, SOUP_STATUS_BAD_REQUEST,
+                                                                  NULL); return; }
+        g_autoptr(GError) search_error = NULL;
+        g_autoptr(GPtrArray) notices = bicmag_cache_search_notices(cache, query_text,
+                                                                   &search_error);
+        if (notices == NULL) { json_builder_end_object(builder);
+                               soup_server_message_set_status(message,
+                                                              SOUP_STATUS_INTERNAL_SERVER_ERROR,
+                                                              NULL); return; }
+        json_builder_begin_object(builder); json_builder_set_member_name(builder, "content");
+        json_builder_begin_array(builder); json_builder_begin_object(builder);
+        json_builder_set_member_name(builder, "type");
+        json_builder_add_string_value(builder, "text");
+        json_builder_set_member_name(builder, "text");
+        g_autoptr(GString) text = g_string_new(NULL);
+        for (guint i = 0; i < notices->len;
+             i++) { BicMagNotice*notice = g_ptr_array_index(notices, i);
+                    g_string_append_printf(text, "%s\t%s\n", notice->id, notice->title);
+        } json_builder_add_string_value(builder, text->str); json_builder_end_object(builder);
+        json_builder_end_array(builder); json_builder_end_object(builder);
     }
     else {
         json_builder_end_object(builder);
@@ -92,7 +141,9 @@ main(int argc, char**argv)
 
     g_autoptr(GError) error = NULL;
     g_autoptr(SoupServer) server = soup_server_new(NULL, NULL);
-    soup_server_add_handler(server, NULL, bicmag_mcp_handler, NULL, NULL);
+    g_autoptr(BicMagCache) cache = bicmag_cache_open("bicmag.db", &error);
+    if (cache == NULL) { g_printerr("bicmag: %s\n", error->message); return 1; }
+    soup_server_add_handler(server, NULL, bicmag_mcp_handler, cache, NULL);
     if (!soup_server_listen_local(server, port, SOUP_SERVER_LISTEN_IPV4_ONLY,
                                   &error)) {
         g_printerr("bicmag: %s\n", error->message);
