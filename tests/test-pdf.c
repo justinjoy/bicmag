@@ -2,6 +2,7 @@
 #include "bicmag/notice.h"
 #include "bicmag/cache.h"
 #include "bicmag/ntis.h"
+#include "bicmag/list.h"
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -128,6 +129,24 @@ test_ntis_client(void)
     g_assert_nonnull(client->session);
 }
 
+static void
+test_ntis_list_parser(void)
+{
+    g_autofree gchar *html = NULL;
+    g_autoptr(GError) error = NULL;
+    g_assert_true(g_file_get_contents("../tests/data/ntis-list.html", &html, NULL, &error));
+    g_autoptr(GPtrArray) notices = bicmag_ntis_parse_notices(html,
+        "https://www.ntis.go.kr/rndgate/eg/un/ra/mng.do", &error);
+    g_assert_no_error(error);
+    g_assert_cmpuint(notices->len, ==, 2);
+    g_assert_cmpstr(((BicMagNotice *)notices->pdata[0])->id, ==, "77109");
+    g_assert_cmpstr(((BicMagNotice *)notices->pdata[0])->ministry, ==, "국방부");
+    g_assert_cmpstr(((BicMagNotice *)notices->pdata[1])->title, ==,
+                    "핵심인재 & 글로벌 브릿지");
+    g_assert_true(g_str_has_prefix(((BicMagNotice *)notices->pdata[0])->detail_url,
+                                   "https://www.ntis.go.kr/"));
+}
+
 int
 main(int argc, char **argv)
 {
@@ -139,5 +158,6 @@ main(int argc, char **argv)
     g_test_add_func("/notice/date-rules", test_notice_date_rules);
     g_test_add_func("/cache/local-search", test_local_notice_cache);
     g_test_add_func("/ntis/client", test_ntis_client);
+    g_test_add_func("/ntis/list-parser", test_ntis_list_parser);
     return g_test_run();
 }

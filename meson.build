@@ -6,8 +6,8 @@ project('BicMag', ['c', 'cpp'],
     'warning_level=3',
   ])
 
-glib_dep = dependency('glib-2.0', version : '>=2.56')
-gio_dep = dependency('gio-2.0', version : '>=2.56')
+glib_dep = dependency('glib-2.0', version : '>=2.66')
+gio_dep = dependency('gio-2.0', version : '>=2.66')
 libsoup_dep = dependency('libsoup-3.0', version : '>=3.0')
 podofo_dep = dependency('libpodofo', version : '>=1.1.0')
 sqlite_dep = dependency('sqlite3')
@@ -36,7 +36,7 @@ cache_lib = static_library('bicmag-cache',
   install : false,
 )
 
-ntis_lib = static_library('bicmag-ntis', 'bicmag/ntis.c',
+ntis_lib = static_library('bicmag-ntis', ['bicmag/ntis.c', 'bicmag/list.c'],
   include_directories : inc, dependencies : [glib_dep, gio_dep, libsoup_dep])
 
 pdf_test = executable('test-bicmag-pdf',
