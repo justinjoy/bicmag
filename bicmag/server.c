@@ -4,6 +4,7 @@
 #include <libsoup/soup.h>
 #include <string.h>
 #include "bicmag/cache.h"
+#include "bicmag/collector.h"
 
 static gchar *
 bicmag_mcp_deadline_label(const gchar *deadline_date, GDateTime *today)
@@ -267,6 +268,11 @@ main(int argc, char **argv)
     g_autoptr(SoupServer) server = soup_server_new(NULL, NULL);
     g_autoptr(BicMagCache) cache = bicmag_cache_open("bicmag.db", &error);
     if (cache == NULL) { g_printerr("bicmag: %s\n", error->message); return 1; }
+    g_autoptr(BicMagNtis) client = bicmag_ntis_new();
+    if (!bicmag_collector_sync(cache, client, BICMAG_NTIS_LIST_URI,
+                               "bicmag-attachments", &error)) {
+        g_printerr("bicmag: NTIS sync failed: %s\n", error->message);
+    }
     soup_server_add_handler(server, NULL, bicmag_mcp_handler, cache, NULL);
     if (!soup_server_listen_local(server, port, SOUP_SERVER_LISTEN_IPV4_ONLY,
                                   &error)) {

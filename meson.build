@@ -40,6 +40,10 @@ cache_lib = static_library('bicmag-cache',
 ntis_lib = static_library('bicmag-ntis', ['bicmag/ntis.c', 'bicmag/list.c', 'bicmag/attachment.c'],
   include_directories : inc, dependencies : [glib_dep, gio_dep, libsoup_dep])
 
+collector_lib = static_library('bicmag-collector', 'bicmag/collector.c',
+  include_directories : inc, link_with : [cache_lib, ntis_lib, notice_lib],
+  dependencies : [glib_dep, gio_dep, libsoup_dep])
+
 index_lib = static_library('bicmag-index', 'bicmag/index.c',
   include_directories : inc, link_with : [pdf_lib, cache_lib],
   dependencies : [glib_dep, gio_dep, sqlite_dep])
@@ -57,13 +61,14 @@ configure_file(input : 'tests/data/sample.pdf', output : 'sample.pdf', copy : tr
 test('bicmag-pdf', pdf_test)
 
 bicmag_exe = executable('bicmag', 'bicmag/server.c', include_directories : inc,
-  link_with : [cache_lib, notice_lib, ntis_lib],
+  link_with : [collector_lib, cache_lib, notice_lib, ntis_lib],
   dependencies : [glib_dep, gio_dep, libsoup_dep, json_dep, sqlite_dep])
 
 uncrustify = find_program('uncrustify', version : '>=0.83.0', required : false)
 if uncrustify.found()
   lint_sources = files('bicmag/attachment.c', 'bicmag/attachment.h',
-    'bicmag/cache.c', 'bicmag/cache.h', 'bicmag/index.c', 'bicmag/index.h',
+    'bicmag/cache.c', 'bicmag/cache.h', 'bicmag/collector.c', 'bicmag/collector.h',
+    'bicmag/index.c', 'bicmag/index.h',
     'bicmag/list.c', 'bicmag/list.h', 'bicmag/notice.c', 'bicmag/notice.h',
     'bicmag/ntis.c', 'bicmag/ntis.h', 'bicmag/pdf.cpp', 'bicmag/pdf.h',
     'bicmag/server.c', 'tests/test-pdf.c')
