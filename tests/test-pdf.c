@@ -7,6 +7,24 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <libsoup/soup-server-message.h>
+
+typedef struct { SoupServer *server; GMainLoop *loop; GMutex mutex; GCond cond; gchar *uri; } TestServer;
+static void test_server_cb(SoupServer *server, SoupServerMessage *msg, const gchar *path, GHashTable *query, gpointer data) {
+    (void)server; (void)query; (void)data;
+    if (g_str_has_suffix(path, "error")) { soup_server_message_set_response(msg, "text/plain", SOUP_MEMORY_STATIC, "missing", 7); soup_server_message_set_status(msg, 404, "Not Found"); return; }
+    const gchar *body = "fixture-download";
+    soup_server_message_set_status(msg, 200, NULL);
+    soup_server_message_set_response(msg, "application/octet-stream", SOUP_MEMORY_STATIC, body, strlen(body));
+}
+static gpointer test_server_thread(gpointer data) {
+    TestServer *t = data; g_autoptr(GError) error = NULL; GMainContext *context = g_main_context_new(); g_main_context_push_thread_default(context);
+    t->server = soup_server_new(NULL, NULL); soup_server_add_handler(t->server, NULL, test_server_cb, NULL, NULL);
+    g_assert_true(soup_server_listen_local(t->server, 0, 0, &error));
+    GSList *uris = soup_server_get_uris(t->server);
+    g_mutex_lock(&t->mutex); t->uri = g_uri_to_string(uris->data); t->loop = g_main_loop_new(g_main_context_get_thread_default(), FALSE); g_cond_signal(&t->cond); g_mutex_unlock(&t->mutex);
+    g_main_loop_run(t->loop); g_main_context_pop_thread_default(context); g_main_context_unref(context); return NULL;
+}
 
 static void
 test_invalid_arguments(void)
@@ -193,6 +211,21 @@ test_ntis_digest_arguments(void)
     g_assert_null(saved); g_assert_null(digest); g_assert_cmpuint(bytes, ==, 0);
 }
 
+static void
+test_ntis_download_fixture(void)
+{
+    TestServer t = {0}; g_mutex_init(&t.mutex); g_cond_init(&t.cond); GThread *thread = g_thread_new("ntis-fixture", test_server_thread, &t);
+    g_mutex_lock(&t.mutex); while (t.uri == NULL) g_cond_wait(&t.cond, &t.mutex); gchar *uri = g_strdup(t.uri); g_mutex_unlock(&t.mutex);
+    g_autoptr(BicMagNtis) client = bicmag_ntis_new(); g_autofree gchar *dir = g_dir_make_tmp("bicmag-test-XXXXXX", NULL); g_autofree gchar *saved = NULL; g_autofree gchar *digest = NULL; guint64 bytes = 0; g_autoptr(GError) error = NULL;
+    gboolean ok = bicmag_ntis_download_file_with_digest(client, uri, dir, "fixture.bin", &saved, &bytes, &digest, &error); g_test_message("download error: %s", error ? error->message : "none"); g_assert_true(ok); g_assert_no_error(error); g_assert_cmpuint(bytes, ==, strlen("fixture-download"));
+    g_assert_cmpstr(digest, ==, "3d159e6b507feaf3432d6f40beb51808d5e7645078760aa74761a69720905cbc");
+    g_autofree gchar *error_uri = g_strdup_printf("%s/error", uri);
+    g_clear_error(&error);
+    g_assert_false(bicmag_ntis_download_file(client, error_uri, dir, "error.bin", NULL, &error));
+    g_assert_error(error, G_IO_ERROR, G_IO_ERROR_FAILED);
+    g_main_loop_quit(t.loop); g_thread_join(thread); g_clear_object(&t.server); g_clear_pointer(&t.loop, g_main_loop_unref); g_free(t.uri); g_free(uri); g_remove(saved); g_rmdir(dir);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -208,5 +241,6 @@ main(int argc, char **argv)
     g_test_add_func("/ntis/attachment-parser", test_ntis_attachment_parser);
     g_test_add_func("/ntis/download-path-safety", test_ntis_download_path_safety);
     g_test_add_func("/ntis/digest-arguments", test_ntis_digest_arguments);
+    g_test_add_func("/ntis/download-fixture", test_ntis_download_fixture);
     return g_test_run();
 }
