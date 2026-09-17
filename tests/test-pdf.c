@@ -1,6 +1,7 @@
 #include "bicmag/pdf.h"
 #include "bicmag/notice.h"
 #include "bicmag/cache.h"
+#include "bicmag/ntis.h"
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -119,6 +120,14 @@ test_local_notice_cache(void)
                     "notice-1");
 }
 
+static void
+test_ntis_client(void)
+{
+    g_autoptr(BicMagNtis) client = bicmag_ntis_new();
+    g_assert_nonnull(client);
+    g_assert_nonnull(client->session);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -129,5 +138,6 @@ main(int argc, char **argv)
     g_test_add_func("/pdf/text-extraction", test_text_extraction);
     g_test_add_func("/notice/date-rules", test_notice_date_rules);
     g_test_add_func("/cache/local-search", test_local_notice_cache);
+    g_test_add_func("/ntis/client", test_ntis_client);
     return g_test_run();
 }

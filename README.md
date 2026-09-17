@@ -8,7 +8,10 @@ BicMag은 NTIS 국가 R&D 공고를 로컬에 캐시하고, 다운로드한 PDF 
 .
 ├── bicmag/                  # PDF 모듈 헤더와 구현
 │   ├── pdf.h
-│   └── pdf.cpp              # PoDoFo를 감싸는 C++ 경계
+│   ├── pdf.cpp              # PoDoFo를 감싸는 C++ 경계
+│   ├── notice.c/.h          # 공고 날짜 규칙
+│   ├── cache.c/.h           # SQLite/FTS5 로컬 캐시
+│   └── ntis.c/.h            # libsoup 기반 HTTP 세션과 NTIS 요청
 ├── tests/                   # GLib 테스트
 │   └── test-pdf.c
 ├── meson.build
@@ -20,7 +23,7 @@ BicMag은 NTIS 국가 R&D 공고를 로컬에 캐시하고, 다운로드한 PDF 
 
 ## 빌드
 
-PoDoFo 1.1 이상과 GLib 개발 패키지가 필요합니다.
+PoDoFo 1.1 이상, GLib 및 libsoup 3 개발 패키지가 필요합니다.
 
 ```sh
 meson setup build
