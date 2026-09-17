@@ -14,20 +14,23 @@ bicmag_pdf_error_quark(void)
 }
 
 static void
-bicmag_pdf_set_error(GError **error,
+bicmag_pdf_set_error(GError**error,
                      BicMagPdfError code,
-                     const gchar *message)
+                     const gchar*message)
 {
-    if (error != nullptr && *error == nullptr)
+    if (error != nullptr && *error == nullptr){
         g_set_error(error, BICMAG_PDF_ERROR, code, "%s", message);
+    }
 }
 
 extern "C" gboolean
-bicmag_pdf_has_signature(const gchar *path, GError **error)
+bicmag_pdf_has_signature(const gchar*path, GError**error)
 {
-    if (path == nullptr) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_INVALID_ARGUMENT, "path is required"); return FALSE; }
+    if (path == nullptr) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_INVALID_ARGUMENT,
+                                                "path is required"); return FALSE; }
     std::ifstream stream(path, std::ios::binary);
-    if (!stream) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_OPEN, "cannot open PDF file"); return FALSE; }
+    if (!stream) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_OPEN, "cannot open PDF file");
+                   return FALSE; }
     char header[5] = {};
     stream.read(header, sizeof header);
     if (stream.gcount() != 5 || std::string(header, 5) != "%PDF-") {
@@ -38,10 +41,11 @@ bicmag_pdf_has_signature(const gchar *path, GError **error)
 }
 
 extern "C" gboolean
-bicmag_pdf_extract_text(const gchar *path, gchar **text_out, GError **error)
+bicmag_pdf_extract_text(const gchar*path, gchar**text_out, GError**error)
 {
-    if (text_out != nullptr)
+    if (text_out != nullptr){
         *text_out = nullptr;
+    }
 
     if (path == nullptr || text_out == nullptr) {
         bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_INVALID_ARGUMENT,
@@ -61,8 +65,9 @@ bicmag_pdf_extract_text(const gchar *path, gchar **text_out, GError **error)
             for (const auto &entry : entries) {
                 text.append(entry.Text);
             }
-            if (i + 1 < pages.GetCount())
+            if (i + 1 < pages.GetCount()){
                 text.push_back('\n');
+            }
         }
 
         *text_out = g_strdup(text.c_str());

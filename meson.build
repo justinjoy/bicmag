@@ -62,7 +62,11 @@ bicmag_exe = executable('bicmag', 'bicmag/server.c', include_directories : inc,
 
 uncrustify = find_program('uncrustify', version : '>=0.83.0', required : false)
 if uncrustify.found()
+  lint_sources = files('bicmag/attachment.c', 'bicmag/attachment.h',
+    'bicmag/cache.c', 'bicmag/cache.h', 'bicmag/index.c', 'bicmag/index.h',
+    'bicmag/list.c', 'bicmag/list.h', 'bicmag/notice.c', 'bicmag/notice.h',
+    'bicmag/ntis.c', 'bicmag/ntis.h', 'bicmag/pdf.cpp', 'bicmag/pdf.h',
+    'bicmag/server.c', 'tests/test-pdf.c')
   run_target('lint',
-    command : [uncrustify, '-c', files('uncrustify.cfg'), '--check',
-               files('bicmag/server.c')])
+    command : [uncrustify, '-c', files('uncrustify.cfg'), '--check', lint_sources])
 endif

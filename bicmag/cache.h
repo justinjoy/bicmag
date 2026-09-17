@@ -9,36 +9,36 @@
 G_BEGIN_DECLS
 
 typedef struct {
-    sqlite3 *database;
+    sqlite3*database;
 } BicMagCache;
 
-BicMagCache *bicmag_cache_open(const gchar *path, GError **error);
-void bicmag_cache_close(BicMagCache *cache);
+BicMagCache*bicmag_cache_open(const gchar*path, GError**error);
+void bicmag_cache_close(BicMagCache*cache);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(BicMagCache, bicmag_cache_close)
 
-gboolean bicmag_cache_upsert_notice(BicMagCache *cache,
-                                    const BicMagNotice *notice,
+gboolean bicmag_cache_upsert_notice(BicMagCache*cache,
+                                    const BicMagNotice*notice,
                                     gboolean eligible,
                                     gint64 synced_at,
-                                    GError **error);
+                                    GError**error);
 
-GPtrArray *bicmag_cache_search_notices(BicMagCache *cache,
-                                       const gchar *query,
-                                       GError **error);
+GPtrArray*bicmag_cache_search_notices(BicMagCache*cache,
+                                      const gchar*query,
+                                      GError**error);
 
-gboolean bicmag_cache_upsert_attachment(BicMagCache *cache,
-                                        const gchar *notice_id,
-                                        const BicMagAttachment *attachment,
-                                        const gchar *local_path,
-                                        const gchar *sha256,
+gboolean bicmag_cache_upsert_attachment(BicMagCache*cache,
+                                        const gchar*notice_id,
+                                        const BicMagAttachment*attachment,
+                                        const gchar*local_path,
+                                        const gchar*sha256,
                                         gint64 synced_at,
-                                        GError **error);
-GPtrArray *bicmag_cache_list_attachments(BicMagCache *cache,
-                                          const gchar *notice_id,
-                                          GError **error);
-gboolean bicmag_cache_remove_expired(BicMagCache *cache,
-                                     const gchar *today,
-                                     GError **error);
+                                        GError**error);
+GPtrArray*bicmag_cache_list_attachments(BicMagCache*cache,
+                                        const gchar*notice_id,
+                                        GError**error);
+gboolean bicmag_cache_remove_expired(BicMagCache*cache,
+                                     const gchar*today,
+                                     GError**error);
 
 G_END_DECLS
 

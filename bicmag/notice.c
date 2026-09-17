@@ -6,31 +6,34 @@ bicmag_notice_error_quark(void)
     return g_quark_from_static_string("bicmag-notice-error-quark");
 }
 
-static GDateTime *
-bicmag_notice_parse_date(const gchar *value)
+static GDateTime*
+bicmag_notice_parse_date(const gchar*value)
 {
-    g_autofree gchar *normalized = NULL;
-    gchar **parts;
+    g_autofree gchar*normalized = NULL;
+    gchar**parts;
     gint year, month, day;
 
-    if (value == NULL || *value == '\0')
+    if (value == NULL || *value == '\0'){
         return NULL;
+    }
 
     normalized = g_strdup(value);
-    for (gchar *cursor = normalized; *cursor != '\0'; ++cursor) {
-        if (*cursor == '.')
+    for (gchar*cursor = normalized; *cursor != '\0'; ++cursor) {
+        if (*cursor == '.'){
             *cursor = '-';
+        }
     }
     if (strlen(normalized) != 10 || normalized[4] != '-' ||
-        normalized[7] != '-')
+        normalized[7] != '-'){
         return NULL;
+    }
     parts = g_strsplit(normalized, "-", -1);
     if (g_strv_length(parts) != 3) {
         g_strfreev(parts);
         return NULL;
     }
     for (guint i = 0; i < 3; ++i) {
-        for (const gchar *cursor = parts[i]; *cursor != '\0'; ++cursor) {
+        for (const gchar*cursor = parts[i]; *cursor != '\0'; ++cursor) {
             if (!g_ascii_isdigit(*cursor)) {
                 g_strfreev(parts);
                 return NULL;
@@ -41,19 +44,20 @@ bicmag_notice_parse_date(const gchar *value)
     month = (gint)g_ascii_strtoll(parts[1], NULL, 10);
     day = (gint)g_ascii_strtoll(parts[2], NULL, 10);
     g_strfreev(parts);
-    if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31)
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31){
         return NULL;
+    }
     return g_date_time_new_local(year, month, day, 0, 0, 0);
 }
 
-BicMagNotice *
+BicMagNotice*
 bicmag_notice_new(void)
 {
     return g_new0(BicMagNotice, 1);
 }
 
-BicMagNotice *
-bicmag_notice_copy(const BicMagNotice *notice)
+BicMagNotice*
+bicmag_notice_copy(const BicMagNotice*notice)
 {
     g_autoptr(BicMagNotice) copy = NULL;
 
@@ -70,10 +74,11 @@ bicmag_notice_copy(const BicMagNotice *notice)
 }
 
 void
-bicmag_notice_free(BicMagNotice *notice)
+bicmag_notice_free(BicMagNotice*notice)
 {
-    if (notice == NULL)
+    if (notice == NULL){
         return;
+    }
     g_free(notice->id);
     g_free(notice->title);
     g_free(notice->ministry);
@@ -85,11 +90,11 @@ bicmag_notice_free(BicMagNotice *notice)
 }
 
 gboolean
-bicmag_notice_is_eligible(const gchar *receipt_date,
-                          const gchar *deadline_date,
-                          const gchar *status,
-                          GDateTime *now,
-                          GError **error)
+bicmag_notice_is_eligible(const gchar*receipt_date,
+                          const gchar*deadline_date,
+                          const gchar*status,
+                          GDateTime*now,
+                          GError**error)
 {
     g_autoptr(GDateTime) receipt = NULL;
     g_autoptr(GDateTime) deadline = NULL;
@@ -116,13 +121,17 @@ bicmag_notice_is_eligible(const gchar *receipt_date,
                     "invalid receipt date: %s", receipt_date);
         return FALSE;
     }
-    if (deadline != NULL)
+    if (deadline != NULL){
         return g_date_time_compare(today, deadline) <= 0;
-    if (receipt == NULL || status == NULL)
+    }
+    if (receipt == NULL || status == NULL){
         return FALSE;
-    if (g_strcmp0(status, "접수예정") == 0)
+    }
+    if (g_strcmp0(status, "접수예정") == 0){
         return g_date_time_compare(receipt, today) >= 0;
-    if (g_strcmp0(status, "접수중") == 0)
+    }
+    if (g_strcmp0(status, "접수중") == 0){
         return g_date_time_compare(receipt, today) <= 0;
+    }
     return FALSE;
 }
