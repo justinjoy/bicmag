@@ -33,6 +33,7 @@ bicmag_cache_open(const gchar *path, GError **error)
         "id TEXT PRIMARY KEY, title TEXT, ministry TEXT, receipt_date TEXT,"
         "deadline_date TEXT, status TEXT, detail_url TEXT, eligible INTEGER,"
         "synced_at INTEGER NOT NULL);"
+        "CREATE TABLE IF NOT EXISTS attachments (id TEXT PRIMARY KEY, notice_id TEXT NOT NULL REFERENCES notices(id) ON DELETE CASCADE, name TEXT, download_url TEXT, local_path TEXT, sha256 TEXT, synced_at INTEGER NOT NULL);"
         "CREATE TABLE IF NOT EXISTS notice_pdf_hashes (notice_id TEXT NOT NULL, sha256 TEXT NOT NULL, UNIQUE(notice_id, sha256));"
         "CREATE VIRTUAL TABLE IF NOT EXISTS notice_fts USING fts5("
         "notice_id UNINDEXED, title, ministry, content);";
@@ -54,6 +55,22 @@ bicmag_cache_open(const gchar *path, GError **error)
     if (!bicmag_cache_exec(cache, schema, error))
         return NULL;
     return g_steal_pointer(&cache);
+}
+
+gboolean
+bicmag_cache_upsert_attachment(BicMagCache *cache, const gchar *notice_id,
+                               const BicMagAttachment *attachment,
+                               const gchar *local_path, const gchar *sha256,
+                               gint64 synced_at, GError **error)
+{
+    if (cache == NULL || notice_id == NULL || attachment == NULL || attachment->id == NULL) {
+        g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "cache, notice id and attachment id are required"); return FALSE;
+    }
+    sqlite3_stmt *statement = NULL;
+    const gchar *sql = "INSERT INTO attachments(id,notice_id,name,download_url,local_path,sha256,synced_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET notice_id=excluded.notice_id,name=excluded.name,download_url=excluded.download_url,local_path=excluded.local_path,sha256=excluded.sha256,synced_at=excluded.synced_at;";
+    if (sqlite3_prepare_v2(cache->database, sql, -1, &statement, NULL) != SQLITE_OK) { bicmag_cache_set_error(error, cache->database, "prepare attachment upsert"); return FALSE; }
+    sqlite3_bind_text(statement,1,attachment->id,-1,SQLITE_TRANSIENT); sqlite3_bind_text(statement,2,notice_id,-1,SQLITE_TRANSIENT); sqlite3_bind_text(statement,3,attachment->name,-1,SQLITE_TRANSIENT); sqlite3_bind_text(statement,4,attachment->download_url,-1,SQLITE_TRANSIENT); sqlite3_bind_text(statement,5,local_path,-1,SQLITE_TRANSIENT); sqlite3_bind_text(statement,6,sha256,-1,SQLITE_TRANSIENT); sqlite3_bind_int64(statement,7,synced_at);
+    gboolean ok = sqlite3_step(statement) == SQLITE_DONE; if (!ok) bicmag_cache_set_error(error, cache->database, "upsert attachment"); sqlite3_finalize(statement); return ok;
 }
 
 void

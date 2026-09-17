@@ -2,6 +2,7 @@
 #define BICMAG_CACHE_H
 
 #include "bicmag/notice.h"
+#include "bicmag/attachment.h"
 
 #include <sqlite3.h>
 
@@ -24,6 +25,14 @@ gboolean bicmag_cache_upsert_notice(BicMagCache *cache,
 GPtrArray *bicmag_cache_search_notices(BicMagCache *cache,
                                        const gchar *query,
                                        GError **error);
+
+gboolean bicmag_cache_upsert_attachment(BicMagCache *cache,
+                                        const gchar *notice_id,
+                                        const BicMagAttachment *attachment,
+                                        const gchar *local_path,
+                                        const gchar *sha256,
+                                        gint64 synced_at,
+                                        GError **error);
 
 G_END_DECLS
 
