@@ -6,6 +6,26 @@
 #include "bicmag/cache.h"
 
 static void
+bicmag_mcp_error(SoupServerMessage*message, JsonNode*id, gint code,
+                 const gchar*text)
+{
+    g_autoptr(JsonBuilder) builder = json_builder_new();
+    json_builder_begin_object(builder); json_builder_set_member_name(builder, "jsonrpc");
+    json_builder_add_string_value(builder, "2.0"); json_builder_set_member_name(builder, "id");
+    json_builder_add_value(builder,
+                           id != NULL ? json_node_copy(id) : json_node_new(JSON_NODE_NULL));
+    json_builder_set_member_name(builder, "error"); json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "code"); json_builder_add_int_value(builder, code);
+    json_builder_set_member_name(builder, "message"); json_builder_add_string_value(builder, text);
+    json_builder_end_object(builder); json_builder_end_object(builder);
+    g_autoptr(JsonGenerator) generator = json_generator_new();
+    JsonNode*root = json_builder_get_root(builder); json_generator_set_root(generator, root);
+    gsize length = 0; g_autofree gchar*body = json_generator_to_data(generator, &length);
+    json_node_free(root); soup_server_message_set_status(message, SOUP_STATUS_OK, NULL);
+    soup_server_message_set_response(message, "application/json", SOUP_MEMORY_COPY, body, length);
+}
+
+static void
 bicmag_mcp_handler(SoupServer*server, SoupServerMessage*message,
                    const gchar*path, GHashTable*query, gpointer user_data)
 {
@@ -97,14 +117,19 @@ bicmag_mcp_handler(SoupServer*server, SoupServerMessage*message,
                       "ntis_search") != 0 || cache == NULL ||
             *query_text == '\0') { json_builder_end_object(builder);
                                    soup_server_message_set_status(message, SOUP_STATUS_BAD_REQUEST,
-                                                                  NULL); return; }
+                                                                  NULL);
+                                   bicmag_mcp_error(message, id, -32602,
+                                                    "Invalid tools/call arguments"); return; }
         g_autoptr(GError) search_error = NULL;
         g_autoptr(GPtrArray) notices = bicmag_cache_search_notices(cache, query_text,
                                                                    &search_error);
         if (notices == NULL) { json_builder_end_object(builder);
                                soup_server_message_set_status(message,
                                                               SOUP_STATUS_INTERNAL_SERVER_ERROR,
-                                                              NULL); return; }
+                                                              NULL);
+                               bicmag_mcp_error(message, id, -32603,
+                                                search_error ? search_error->message :
+                                                "Local search failed"); return; }
         json_builder_begin_object(builder); json_builder_set_member_name(builder, "content");
         json_builder_begin_array(builder); json_builder_begin_object(builder);
         json_builder_set_member_name(builder, "type");
@@ -119,7 +144,7 @@ bicmag_mcp_handler(SoupServer*server, SoupServerMessage*message,
     }
     else {
         json_builder_end_object(builder);
-        soup_server_message_set_status(message, SOUP_STATUS_NOT_FOUND, NULL);
+        bicmag_mcp_error(message, id, -32601, "Method not found");
         return;
     }
     json_builder_end_object(builder);
