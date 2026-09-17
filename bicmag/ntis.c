@@ -97,6 +97,11 @@ bicmag_ntis_download_message(BicMagNtis *client, SoupMessage *message,
                     "Unsafe attachment filename");
         return FALSE;
     }
+    if (g_mkdir_with_parents(directory, 0755) != 0) {
+        g_set_error(error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED,
+                    "Cannot create download directory: %s", directory);
+        return FALSE;
+    }
     g_autoptr(GError) local_error = NULL;
     g_autoptr(GInputStream) input = soup_session_send(client->session, message, NULL, &local_error);
     if (input == NULL) { g_propagate_error(error, g_steal_pointer(&local_error)); return FALSE; }
