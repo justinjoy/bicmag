@@ -34,6 +34,27 @@ bicmag_mcp_deadline_label(const gchar *deadline_date, GDateTime *today)
            g_strdup_printf("D+%" G_GINT64_FORMAT, -days);
 }
 
+typedef struct {
+    BicMagCache *cache;
+    BicMagNtis *client;
+} BicMagCollectorContext;
+
+static gboolean
+bicmag_collector_timeout(gpointer user_data)
+{
+    BicMagCollectorContext *context = user_data;
+
+    g_autoptr(GError) error = NULL;
+    guint delay = 7200 + g_random_int_range(0, 1801);
+
+    if (!bicmag_collector_sync(context->cache, context->client, BICMAG_NTIS_LIST_URI,
+                               "bicmag-attachments", &error)) {
+        g_warning("NTIS scheduled sync failed: %s", error->message);
+    }
+    g_timeout_add_seconds(delay, bicmag_collector_timeout, context);
+    return G_SOURCE_REMOVE;
+}
+
 static void
 bicmag_mcp_error(SoupServerMessage *message, JsonNode *id, gint code,
                  const gchar *text)
@@ -273,6 +294,9 @@ main(int argc, char **argv)
                                "bicmag-attachments", &error)) {
         g_printerr("bicmag: NTIS sync failed: %s\n", error->message);
     }
+    BicMagCollectorContext collector_context = { cache, client };
+    g_timeout_add_seconds(7200 + g_random_int_range(0, 1801), bicmag_collector_timeout,
+                          &collector_context);
     soup_server_add_handler(server, NULL, bicmag_mcp_handler, cache, NULL);
     if (!soup_server_listen_local(server, port, SOUP_SERVER_LISTEN_IPV4_ONLY,
                                   &error)) {
