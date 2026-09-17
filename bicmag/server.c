@@ -154,7 +154,10 @@ bicmag_mcp_handler(SoupServer *server, SoupServerMessage *message,
         g_autoptr(GString) text = g_string_new(NULL);
         for (guint i = 0; i < notices->len;
              i++) { BicMagNotice *notice = g_ptr_array_index(notices, i);
-                    g_string_append_printf(text, "%s\t%s\n", notice->id, notice->title);
+                    g_string_append_printf(text, "%s\t%s\t%s\n", notice->id,
+                                           notice->deadline_date != NULL &&
+                                           *notice->deadline_date != '\0' ?
+                                           notice->deadline_date : "마감일 없음", notice->title);
         } json_builder_add_string_value(builder, text->str); json_builder_end_object(builder);
         json_builder_end_array(builder); json_builder_end_object(builder);
     }
