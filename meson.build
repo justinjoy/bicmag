@@ -11,6 +11,7 @@ gio_dep = dependency('gio-2.0', version : '>=2.66')
 libsoup_dep = dependency('libsoup-3.0', version : '>=3.0')
 podofo_dep = dependency('libpodofo', version : '>=1.1.0')
 sqlite_dep = dependency('sqlite3')
+json_dep = dependency('json-glib-1.0')
 
 inc = include_directories('.')
 
@@ -54,3 +55,13 @@ pdf_test = executable('test-bicmag-pdf',
 configure_file(input : 'tests/data/sample.pdf', output : 'sample.pdf', copy : true)
 
 test('bicmag-pdf', pdf_test)
+
+bicmag_exe = executable('bicmag', 'bicmag/server.c', include_directories : inc,
+  dependencies : [glib_dep, gio_dep, libsoup_dep, json_dep])
+
+uncrustify = find_program('uncrustify', version : '>=0.83.0', required : false)
+if uncrustify.found()
+  run_target('lint',
+    command : [uncrustify, '-c', files('uncrustify.cfg'), '--check',
+               files('bicmag/server.c')])
+endif
