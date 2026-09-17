@@ -24,6 +24,10 @@ fi
 
 printf '%s\n' "$staged_sources" | while IFS= read -r source; do
     [ -f "$source" ] || continue
+    if ! git diff --quiet -- "$source"; then
+        echo "error: $source has unstaged changes; stage the complete file before committing" >&2
+        exit 1
+    fi
     "$uncrustify_command" -c uncrustify.cfg --replace --no-backup "$source"
     git add -- "$source"
 done
