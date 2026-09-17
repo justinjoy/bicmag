@@ -39,8 +39,8 @@ bicmag_collector_sync_attachment(BicMagCache *cache,
         return bicmag_cache_upsert_attachment(cache, notice_id, attachment, path, NULL,
                                               synced_at, error);
     }
-    g_hash_table_insert(form, "fileUpPath", attachment->id);
-    g_hash_table_insert(form, "fileNm", attachment->notice_id);
+    g_hash_table_insert(form, "wfUid", attachment->id);
+    g_hash_table_insert(form, "roTextUid", attachment->notice_id);
     if (!bicmag_ntis_download_post_form_with_digest(client, attachment->download_url, form,
                                                     directory, filename, &saved_path, NULL,
                                                     &sha256, error)) {
