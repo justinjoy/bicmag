@@ -7,7 +7,9 @@ project('BicMag', ['c', 'cpp'],
   ])
 
 glib_dep = dependency('glib-2.0', version : '>=2.56')
+gio_dep = dependency('gio-2.0', version : '>=2.56')
 podofo_dep = dependency('libpodofo', version : '>=1.1.0')
+sqlite_dep = dependency('sqlite3')
 
 inc = include_directories('.')
 
@@ -18,11 +20,26 @@ pdf_lib = static_library('bicmag-pdf',
   install : false,
 )
 
+notice_lib = static_library('bicmag-notice',
+  'bicmag/notice.c',
+  include_directories : inc,
+  dependencies : glib_dep,
+  install : false,
+)
+
+cache_lib = static_library('bicmag-cache',
+  'bicmag/cache.c',
+  include_directories : inc,
+  dependencies : [glib_dep, gio_dep, sqlite_dep],
+  link_with : notice_lib,
+  install : false,
+)
+
 pdf_test = executable('test-bicmag-pdf',
   'tests/test-pdf.c',
   include_directories : inc,
-  link_with : pdf_lib,
-  dependencies : glib_dep,
+  link_with : [pdf_lib, notice_lib, cache_lib],
+  dependencies : [glib_dep, gio_dep, sqlite_dep],
   link_language : 'cpp',
 )
 
