@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -eu
+
+uncrustify_command=$(command -v uncrustify || true)
+if [ -z "$uncrustify_command" ]; then
+    echo "error: uncrustify (>= 0.83.0) is required for pre-commit formatting" >&2
+    exit 1
+fi
+
+uncrustify_version=$($uncrustify_command --version | sed -n 's/.*Uncrustify-\([0-9][0-9.]*\).*/\1/p')
+if [ -z "$uncrustify_version" ] || ! awk -v version="$uncrustify_version" 'BEGIN {
+    split(version, parts, ".");
+    exit !((parts[1] + 0) > 0 || (parts[2] + 0) >= 83);
+}'; then
+    echo "error: uncrustify >= 0.83.0 is required (found ${uncrustify_version:-unknown})" >&2
+    exit 1
+fi
+
+staged_sources=$(git diff --cached --name-only --diff-filter=ACMR -- '*.c' '*.cpp' '*.h' '*.hpp')
+if [ -z "$staged_sources" ]; then
+    exit 0
+fi
+
+printf '%s\n' "$staged_sources" | while IFS= read -r source; do
+    [ -f "$source" ] || continue
+    "$uncrustify_command" -c uncrustify.cfg --replace --no-backup "$source"
+    git add -- "$source"
+done

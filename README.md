@@ -30,3 +30,11 @@ meson setup build
 meson compile -C build
 meson test -C build --print-errorlogs
 ```
+
+Enable the repository pre-commit hook once after cloning:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook formats staged C and C++ sources with Uncrustify 0.83.0 or newer before each commit.
