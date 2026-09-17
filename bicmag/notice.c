@@ -6,11 +6,11 @@ bicmag_notice_error_quark(void)
     return g_quark_from_static_string("bicmag-notice-error-quark");
 }
 
-static GDateTime*
-bicmag_notice_parse_date(const gchar*value)
+static GDateTime *
+bicmag_notice_parse_date(const gchar *value)
 {
-    g_autofree gchar*normalized = NULL;
-    gchar**parts;
+    g_autofree gchar *normalized = NULL;
+    gchar **parts;
     gint year, month, day;
 
     if (value == NULL || *value == '\0'){
@@ -18,7 +18,7 @@ bicmag_notice_parse_date(const gchar*value)
     }
 
     normalized = g_strdup(value);
-    for (gchar*cursor = normalized; *cursor != '\0'; ++cursor) {
+    for (gchar *cursor = normalized; *cursor != '\0'; ++cursor) {
         if (*cursor == '.'){
             *cursor = '-';
         }
@@ -33,7 +33,7 @@ bicmag_notice_parse_date(const gchar*value)
         return NULL;
     }
     for (guint i = 0; i < 3; ++i) {
-        for (const gchar*cursor = parts[i]; *cursor != '\0'; ++cursor) {
+        for (const gchar *cursor = parts[i]; *cursor != '\0'; ++cursor) {
             if (!g_ascii_isdigit(*cursor)) {
                 g_strfreev(parts);
                 return NULL;
@@ -50,14 +50,14 @@ bicmag_notice_parse_date(const gchar*value)
     return g_date_time_new_local(year, month, day, 0, 0, 0);
 }
 
-BicMagNotice*
+BicMagNotice *
 bicmag_notice_new(void)
 {
     return g_new0(BicMagNotice, 1);
 }
 
-BicMagNotice*
-bicmag_notice_copy(const BicMagNotice*notice)
+BicMagNotice *
+bicmag_notice_copy(const BicMagNotice *notice)
 {
     g_autoptr(BicMagNotice) copy = NULL;
 
@@ -74,7 +74,7 @@ bicmag_notice_copy(const BicMagNotice*notice)
 }
 
 void
-bicmag_notice_free(BicMagNotice*notice)
+bicmag_notice_free(BicMagNotice *notice)
 {
     if (notice == NULL){
         return;
@@ -90,11 +90,11 @@ bicmag_notice_free(BicMagNotice*notice)
 }
 
 gboolean
-bicmag_notice_is_eligible(const gchar*receipt_date,
-                          const gchar*deadline_date,
-                          const gchar*status,
-                          GDateTime*now,
-                          GError**error)
+bicmag_notice_is_eligible(const gchar *receipt_date,
+                          const gchar *deadline_date,
+                          const gchar *status,
+                          GDateTime *now,
+                          GError **error)
 {
     g_autoptr(GDateTime) receipt = NULL;
     g_autoptr(GDateTime) deadline = NULL;

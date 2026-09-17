@@ -3,8 +3,8 @@
 #include <gio/gio.h>
 
 gboolean
-bicmag_index_pdf_notice(BicMagCache*cache, const gchar*notice_id,
-                        const gchar*pdf_path, GError**error)
+bicmag_index_pdf_notice(BicMagCache *cache, const gchar *notice_id,
+                        const gchar *pdf_path, GError **error)
 {
     g_return_val_if_fail(error == NULL || *error == NULL, FALSE);
     if (cache == NULL || notice_id == NULL || pdf_path == NULL) {
@@ -13,12 +13,12 @@ bicmag_index_pdf_notice(BicMagCache*cache, const gchar*notice_id,
         return FALSE;
     }
     if (!bicmag_pdf_has_signature(pdf_path, error)){return FALSE;}
-    g_autofree gchar*text = NULL;
+    g_autofree gchar *text = NULL;
     if (!bicmag_pdf_extract_text(pdf_path, &text, error)){return FALSE;}
     g_autoptr(GChecksum) checksum = g_checksum_new(G_CHECKSUM_SHA256);
-    g_checksum_update(checksum, (const guchar*)text, strlen(text));
-    const gchar*digest = g_checksum_get_string(checksum);
-    sqlite3_stmt*statement = NULL;
+    g_checksum_update(checksum, (const guchar *)text, strlen(text));
+    const gchar *digest = g_checksum_get_string(checksum);
+    sqlite3_stmt *statement = NULL;
     if (sqlite3_exec(cache->database, "BEGIN IMMEDIATE;", NULL, NULL,
                      NULL) != SQLITE_OK) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED,
                                                        "begin PDF index transaction"); return FALSE;
@@ -64,7 +64,7 @@ bicmag_index_pdf_notice(BicMagCache*cache, const gchar*notice_id,
                                             sqlite3_errmsg(cache->database));
                                 sqlite3_exec(cache->database, "ROLLBACK;", NULL, NULL, NULL);
                                 return FALSE; }
-    const gchar*old = (const gchar*)sqlite3_column_text(statement, 0);
+    const gchar *old = (const gchar *)sqlite3_column_text(statement, 0);
     if (old != NULL && g_strcmp0(old, text) == 0) { sqlite3_finalize(statement);
                                                     sqlite3_exec(cache->database, "ROLLBACK;", NULL,
                                                                  NULL, NULL); return TRUE; }

@@ -5,8 +5,8 @@
 
 G_BEGIN_DECLS
 
-gboolean bicmag_index_pdf_notice(BicMagCache*cache, const gchar*notice_id,
-                                 const gchar*pdf_path, GError**error);
+gboolean bicmag_index_pdf_notice(BicMagCache *cache, const gchar *notice_id,
+                                 const gchar *pdf_path, GError **error);
 
 G_END_DECLS
 

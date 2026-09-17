@@ -14,9 +14,9 @@ bicmag_pdf_error_quark(void)
 }
 
 static void
-bicmag_pdf_set_error(GError**error,
+bicmag_pdf_set_error(GError **error,
                      BicMagPdfError code,
-                     const gchar*message)
+                     const gchar *message)
 {
     if (error != nullptr && *error == nullptr){
         g_set_error(error, BICMAG_PDF_ERROR, code, "%s", message);
@@ -24,7 +24,7 @@ bicmag_pdf_set_error(GError**error,
 }
 
 extern "C" gboolean
-bicmag_pdf_has_signature(const gchar*path, GError**error)
+bicmag_pdf_has_signature(const gchar *path, GError **error)
 {
     if (path == nullptr) { bicmag_pdf_set_error(error, BICMAG_PDF_ERROR_INVALID_ARGUMENT,
                                                 "path is required"); return FALSE; }
@@ -41,7 +41,7 @@ bicmag_pdf_has_signature(const gchar*path, GError**error)
 }
 
 extern "C" gboolean
-bicmag_pdf_extract_text(const gchar*path, gchar**text_out, GError**error)
+bicmag_pdf_extract_text(const gchar *path, gchar **text_out, GError **error)
 {
     if (text_out != nullptr){
         *text_out = nullptr;

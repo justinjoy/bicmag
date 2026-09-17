@@ -3,16 +3,16 @@
 #include <gio/gio.h>
 
 static void
-bicmag_cache_set_error(GError**error, sqlite3*database, const gchar*context)
+bicmag_cache_set_error(GError **error, sqlite3 *database, const gchar *context)
 {
     g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "%s: %s", context,
                 database != NULL ? sqlite3_errmsg(database) : "database error");
 }
 
 static gboolean
-bicmag_cache_exec(BicMagCache*cache, const gchar*sql, GError**error)
+bicmag_cache_exec(BicMagCache *cache, const gchar *sql, GError **error)
 {
-    char*message = NULL;
+    char *message = NULL;
 
     if (sqlite3_exec(cache->database, sql, NULL, NULL, &message) != SQLITE_OK) {
         g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "%s: %s", sql,
@@ -23,12 +23,12 @@ bicmag_cache_exec(BicMagCache*cache, const gchar*sql, GError**error)
     return TRUE;
 }
 
-BicMagCache*
-bicmag_cache_open(const gchar*path, GError**error)
+BicMagCache *
+bicmag_cache_open(const gchar *path, GError **error)
 {
     g_autoptr(BicMagCache) cache = NULL;
-    sqlite3*database = NULL;
-    const gchar*schema =
+    sqlite3 *database = NULL;
+    const gchar *schema =
         "PRAGMA foreign_keys = ON;"
         "CREATE TABLE IF NOT EXISTS notices ("
         "id TEXT PRIMARY KEY, title TEXT, ministry TEXT, receipt_date TEXT,"
@@ -53,7 +53,7 @@ bicmag_cache_open(const gchar*path, GError**error)
     }
     cache = g_new0(BicMagCache, 1);
     cache->database = database;
-    sqlite3_stmt*version_statement = NULL;
+    sqlite3_stmt *version_statement = NULL;
     if (sqlite3_prepare_v2(database, "PRAGMA user_version;", -1, &version_statement,
                            NULL) != SQLITE_OK || sqlite3_step(version_statement) != SQLITE_ROW) {
         sqlite3_finalize(version_statement);
@@ -76,17 +76,17 @@ bicmag_cache_open(const gchar*path, GError**error)
 }
 
 gboolean
-bicmag_cache_upsert_attachment(BicMagCache*cache, const gchar*notice_id,
-                               const BicMagAttachment*attachment,
-                               const gchar*local_path, const gchar*sha256,
-                               gint64 synced_at, GError**error)
+bicmag_cache_upsert_attachment(BicMagCache *cache, const gchar *notice_id,
+                               const BicMagAttachment *attachment,
+                               const gchar *local_path, const gchar *sha256,
+                               gint64 synced_at, GError **error)
 {
     if (cache == NULL || notice_id == NULL || attachment == NULL || attachment->id == NULL) {
         g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
                     "cache, notice id and attachment id are required"); return FALSE;
     }
-    sqlite3_stmt*statement = NULL;
-    const gchar*sql =
+    sqlite3_stmt *statement = NULL;
+    const gchar *sql =
         "INSERT INTO attachments(id,notice_id,name,download_url,local_path,sha256,synced_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET notice_id=excluded.notice_id,name=excluded.name,download_url=excluded.download_url,local_path=excluded.local_path,sha256=excluded.sha256,synced_at=excluded.synced_at;";
     if (sqlite3_prepare_v2(cache->database, sql, -1, &statement,
                            NULL) != SQLITE_OK) { bicmag_cache_set_error(error, cache->database,
@@ -104,9 +104,9 @@ bicmag_cache_upsert_attachment(BicMagCache*cache, const gchar*notice_id,
     } sqlite3_finalize(statement); return ok;
 }
 
-GPtrArray*
-bicmag_cache_list_attachments(BicMagCache*cache, const gchar*notice_id,
-                              GError**error)
+GPtrArray *
+bicmag_cache_list_attachments(BicMagCache *cache, const gchar *notice_id,
+                              GError **error)
 {
     g_autoptr(GPtrArray) result =
         g_ptr_array_new_with_free_func((GDestroyNotify)bicmag_attachment_free);
@@ -114,7 +114,7 @@ bicmag_cache_list_attachments(BicMagCache*cache, const gchar*notice_id,
                                                           G_IO_ERROR_INVALID_ARGUMENT,
                                                           "cache and notice id are required");
                                               return NULL; }
-    sqlite3_stmt*statement = NULL;
+    sqlite3_stmt *statement = NULL;
     if (sqlite3_prepare_v2(cache->database,
                            "SELECT id,name,download_url,local_path,sha256 FROM attachments WHERE notice_id = ? ORDER BY id;",
                            -1, &statement, NULL) != SQLITE_OK) { bicmag_cache_set_error(error,
@@ -126,12 +126,12 @@ bicmag_cache_list_attachments(BicMagCache*cache, const gchar*notice_id,
     int code;
     while ((code = sqlite3_step(statement)) == SQLITE_ROW) {
         g_autoptr(BicMagAttachment) item = bicmag_attachment_new();
-        item->id = g_strdup((const gchar*)sqlite3_column_text(statement, 0));
+        item->id = g_strdup((const gchar *)sqlite3_column_text(statement, 0));
         item->notice_id = g_strdup(notice_id);
-        item->name = g_strdup((const gchar*)sqlite3_column_text(statement, 1));
-        item->download_url = g_strdup((const gchar*)sqlite3_column_text(statement, 2));
-        item->local_path = g_strdup((const gchar*)sqlite3_column_text(statement, 3));
-        item->sha256 = g_strdup((const gchar*)sqlite3_column_text(statement, 4));
+        item->name = g_strdup((const gchar *)sqlite3_column_text(statement, 1));
+        item->download_url = g_strdup((const gchar *)sqlite3_column_text(statement, 2));
+        item->local_path = g_strdup((const gchar *)sqlite3_column_text(statement, 3));
+        item->sha256 = g_strdup((const gchar *)sqlite3_column_text(statement, 4));
         g_ptr_array_add(result, g_steal_pointer(&item));
     }
     if (code != SQLITE_DONE) { bicmag_cache_set_error(error, cache->database, "list attachments");
@@ -140,15 +140,15 @@ bicmag_cache_list_attachments(BicMagCache*cache, const gchar*notice_id,
 }
 
 gboolean
-bicmag_cache_remove_expired(BicMagCache*cache, const gchar*today, GError**error)
+bicmag_cache_remove_expired(BicMagCache *cache, const gchar *today, GError **error)
 {
     if (cache == NULL || today == NULL || *today == '\0') { g_set_error(error, G_IO_ERROR,
                                                                         G_IO_ERROR_INVALID_ARGUMENT,
                                                                         "cache and today are required");
                                                             return FALSE; }
-    sqlite3_stmt*statement = NULL;
+    sqlite3_stmt *statement = NULL;
     if (!bicmag_cache_exec(cache, "BEGIN IMMEDIATE;", error)){return FALSE;}
-    const gchar*dependent_sql[] =
+    const gchar *dependent_sql[] =
     {
         "DELETE FROM notice_fts WHERE notice_id IN (SELECT id FROM notices WHERE deadline_date IS NOT NULL AND deadline_date <> '' AND deadline_date <= ?);",
         "DELETE FROM notice_pdf_hashes WHERE notice_id IN (SELECT id FROM notices WHERE deadline_date IS NOT NULL AND deadline_date <> '' AND deadline_date <= ?);"
@@ -187,7 +187,7 @@ bicmag_cache_remove_expired(BicMagCache*cache, const gchar*today, GError**error)
 }
 
 void
-bicmag_cache_close(BicMagCache*cache)
+bicmag_cache_close(BicMagCache *cache)
 {
     if (cache == NULL){
         return;
@@ -199,15 +199,15 @@ bicmag_cache_close(BicMagCache*cache)
 }
 
 gboolean
-bicmag_cache_upsert_notice(BicMagCache*cache,
-                           const BicMagNotice*notice,
+bicmag_cache_upsert_notice(BicMagCache *cache,
+                           const BicMagNotice *notice,
                            gboolean eligible,
                            gint64 synced_at,
-                           GError**error)
+                           GError **error)
 {
-    sqlite3_stmt*statement = NULL;
-    gchar*existing_content = NULL;
-    const gchar*sql =
+    sqlite3_stmt *statement = NULL;
+    gchar *existing_content = NULL;
+    const gchar *sql =
         "INSERT INTO notices(id,title,ministry,receipt_date,deadline_date,status,detail_url,eligible,synced_at)"
         " VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,"
         "ministry=excluded.ministry,receipt_date=excluded.receipt_date,deadline_date=excluded.deadline_date,"
@@ -252,7 +252,7 @@ bicmag_cache_upsert_notice(BicMagCache*cache,
     sqlite3_bind_text(statement, 1, notice->id, -1, SQLITE_TRANSIENT);
     int lookup_result = sqlite3_step(statement);
     if (lookup_result == SQLITE_ROW){
-        existing_content = g_strdup((const gchar*)sqlite3_column_text(statement, 0));
+        existing_content = g_strdup((const gchar *)sqlite3_column_text(statement, 0));
     }
     else if (lookup_result != SQLITE_DONE) {
         bicmag_cache_set_error(error, cache->database, "lookup notice index");
@@ -297,13 +297,13 @@ bicmag_cache_upsert_notice(BicMagCache*cache,
     return bicmag_cache_exec(cache, "COMMIT;", error);
 }
 
-GPtrArray*
-bicmag_cache_search_notices(BicMagCache*cache, const gchar*query, GError**error)
+GPtrArray *
+bicmag_cache_search_notices(BicMagCache *cache, const gchar *query, GError **error)
 {
     g_autoptr(GPtrArray) results =
         g_ptr_array_new_with_free_func((GDestroyNotify)bicmag_notice_free);
-    sqlite3_stmt*statement = NULL;
-    const gchar*sql =
+    sqlite3_stmt *statement = NULL;
+    const gchar *sql =
         "SELECT n.id,n.title,n.ministry,n.receipt_date,n.deadline_date,n.status,n.detail_url "
         "FROM notice_fts f JOIN notices n ON n.id=f.notice_id "
         "WHERE n.eligible = 1 AND notice_fts MATCH ? "
@@ -321,17 +321,54 @@ bicmag_cache_search_notices(BicMagCache*cache, const gchar*query, GError**error)
     int result_code;
     while ((result_code = sqlite3_step(statement)) == SQLITE_ROW) {
         g_autoptr(BicMagNotice) notice = bicmag_notice_new();
-        notice->id = g_strdup((const gchar*)sqlite3_column_text(statement, 0));
-        notice->title = g_strdup((const gchar*)sqlite3_column_text(statement, 1));
-        notice->ministry = g_strdup((const gchar*)sqlite3_column_text(statement, 2));
-        notice->receipt_date = g_strdup((const gchar*)sqlite3_column_text(statement, 3));
-        notice->deadline_date = g_strdup((const gchar*)sqlite3_column_text(statement, 4));
-        notice->status = g_strdup((const gchar*)sqlite3_column_text(statement, 5));
-        notice->detail_url = g_strdup((const gchar*)sqlite3_column_text(statement, 6));
+        notice->id = g_strdup((const gchar *)sqlite3_column_text(statement, 0));
+        notice->title = g_strdup((const gchar *)sqlite3_column_text(statement, 1));
+        notice->ministry = g_strdup((const gchar *)sqlite3_column_text(statement, 2));
+        notice->receipt_date = g_strdup((const gchar *)sqlite3_column_text(statement, 3));
+        notice->deadline_date = g_strdup((const gchar *)sqlite3_column_text(statement, 4));
+        notice->status = g_strdup((const gchar *)sqlite3_column_text(statement, 5));
+        notice->detail_url = g_strdup((const gchar *)sqlite3_column_text(statement, 6));
         g_ptr_array_add(results, g_steal_pointer(&notice));
     }
     if (result_code != SQLITE_DONE) {
         bicmag_cache_set_error(error, cache->database, "search notices");
+        sqlite3_finalize(statement);
+        return NULL;
+    }
+    sqlite3_finalize(statement);
+    return g_steal_pointer(&results);
+}
+
+GPtrArray *
+bicmag_cache_list_notices(BicMagCache *cache, GError **error)
+{
+    g_autoptr(GPtrArray) results =
+        g_ptr_array_new_with_free_func((GDestroyNotify)bicmag_notice_free);
+    sqlite3_stmt *statement = NULL;
+    const gchar *sql =
+        "SELECT id,title,ministry,receipt_date,deadline_date,status,detail_url "
+        "FROM notices WHERE eligible = 1 "
+        "ORDER BY deadline_date IS NULL, deadline_date, id";
+    if (cache == NULL || sqlite3_prepare_v2(cache->database, sql, -1, &statement, NULL) !=
+        SQLITE_OK) {
+        bicmag_cache_set_error(error, cache != NULL ? cache->database : NULL,
+                               "prepare notice list");
+        return NULL;
+    }
+    int result_code;
+    while ((result_code = sqlite3_step(statement)) == SQLITE_ROW) {
+        g_autoptr(BicMagNotice) notice = bicmag_notice_new();
+        notice->id = g_strdup((const gchar *)sqlite3_column_text(statement, 0));
+        notice->title = g_strdup((const gchar *)sqlite3_column_text(statement, 1));
+        notice->ministry = g_strdup((const gchar *)sqlite3_column_text(statement, 2));
+        notice->receipt_date = g_strdup((const gchar *)sqlite3_column_text(statement, 3));
+        notice->deadline_date = g_strdup((const gchar *)sqlite3_column_text(statement, 4));
+        notice->status = g_strdup((const gchar *)sqlite3_column_text(statement, 5));
+        notice->detail_url = g_strdup((const gchar *)sqlite3_column_text(statement, 6));
+        g_ptr_array_add(results, g_steal_pointer(&notice));
+    }
+    if (result_code != SQLITE_DONE) {
+        bicmag_cache_set_error(error, cache->database, "list notices");
         sqlite3_finalize(statement);
         return NULL;
     }

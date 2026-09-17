@@ -1,15 +1,15 @@
 #include "bicmag/attachment.h"
 #include <string.h>
 
-BicMagAttachment*bicmag_attachment_new(void) {
+BicMagAttachment *bicmag_attachment_new(void) {
     return g_new0(BicMagAttachment, 1);
 }
-void bicmag_attachment_free(BicMagAttachment*a) {
+void bicmag_attachment_free(BicMagAttachment *a) {
     if (!a){ return;} g_free(a->id); g_free(a->notice_id); g_free(a->name); g_free(a->download_url);
     g_free(a->local_path); g_free(a->sha256); g_free(a);
 }
 
-GPtrArray*bicmag_ntis_parse_attachments(const gchar*html, const gchar*base_uri, GError**error)
+GPtrArray *bicmag_ntis_parse_attachments(const gchar *html, const gchar *base_uri, GError **error)
 {
     if (html == NULL || base_uri == NULL) { g_set_error(error, G_URI_ERROR, G_URI_ERROR_FAILED,
                                                         "HTML and base URI are required");
@@ -22,8 +22,8 @@ GPtrArray*bicmag_ntis_parse_attachments(const gchar*html, const gchar*base_uri, 
             G_REGEX_CASELESS | G_REGEX_DOTALL, 0, NULL);
     g_autoptr(GMatchInfo) mi = NULL; g_regex_match(re, html, 0, &mi);
     while (g_match_info_matches(mi)) {
-        g_autofree gchar*href = g_match_info_fetch(mi, 1), *onclick = g_match_info_fetch(mi, 2),
-                        *name = g_match_info_fetch(mi, 3);
+        g_autofree gchar *href = g_match_info_fetch(mi, 1), *onclick = g_match_info_fetch(mi, 2),
+                         *name = g_match_info_fetch(mi, 3);
         g_autoptr(GRegex) args =
             g_regex_new(
                 "fn_fileDownload\\s*\\(\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*,\\s*['\\\"]([^'\\\"]+)['\\\"]",
