@@ -36,7 +36,8 @@ bicmag_cache_open(const gchar *path, GError **error)
         "CREATE TABLE IF NOT EXISTS attachments (id TEXT PRIMARY KEY, notice_id TEXT NOT NULL REFERENCES notices(id) ON DELETE CASCADE, name TEXT, download_url TEXT, local_path TEXT, sha256 TEXT, synced_at INTEGER NOT NULL);"
         "CREATE TABLE IF NOT EXISTS notice_pdf_hashes (notice_id TEXT NOT NULL, sha256 TEXT NOT NULL, UNIQUE(notice_id, sha256));"
         "CREATE VIRTUAL TABLE IF NOT EXISTS notice_fts USING fts5("
-        "notice_id UNINDEXED, title, ministry, content);";
+        "notice_id UNINDEXED, title, ministry, content);"
+        "PRAGMA user_version = 1;";
 
     if (path == NULL) {
         g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
