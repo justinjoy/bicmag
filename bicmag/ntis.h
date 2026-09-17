@@ -10,5 +10,14 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(BicMagNtis, bicmag_ntis_free)
 gchar *bicmag_ntis_get_html(BicMagNtis *client, const gchar *uri, GError **error);
 gchar *bicmag_ntis_post_form(BicMagNtis *client, const gchar *uri,
                              GHashTable *form, GError **error);
+gboolean bicmag_ntis_download_file(BicMagNtis *client, const gchar *uri,
+                                   const gchar *directory,
+                                   const gchar *filename,
+                                   gchar **saved_path, GError **error);
+gboolean bicmag_ntis_download_post_form(BicMagNtis *client, const gchar *uri,
+                                        GHashTable *form,
+                                        const gchar *directory,
+                                        const gchar *filename,
+                                        gchar **saved_path, GError **error);
 G_END_DECLS
 #endif

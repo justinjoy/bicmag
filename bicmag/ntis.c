@@ -80,3 +80,73 @@ bicmag_ntis_post_form(BicMagNtis *client, const gchar *uri,
         "application/x-www-form-urlencoded", body);
     return bicmag_ntis_send_message(client, message, error);
 }
+
+static gboolean
+bicmag_ntis_download_message(BicMagNtis *client, SoupMessage *message,
+                              const gchar *directory, const gchar *filename,
+                              gchar **saved_path, GError **error)
+{
+    g_return_val_if_fail(client != NULL && client->session != NULL, FALSE);
+    g_return_val_if_fail(directory != NULL && filename != NULL, FALSE);
+    if (saved_path != NULL) *saved_path = NULL;
+    if (*filename == '\0' || g_path_is_absolute(filename) ||
+        g_strcmp0(filename, ".") == 0 || g_strcmp0(filename, "..") == 0 ||
+        g_strstr_len(filename, -1, "/") != NULL ||
+        g_strstr_len(filename, -1, "\\") != NULL) {
+        g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+                    "Unsafe attachment filename");
+        return FALSE;
+    }
+    g_autoptr(GError) local_error = NULL;
+    g_autoptr(GInputStream) input = soup_session_send(client->session, message, NULL, &local_error);
+    if (input == NULL) { g_propagate_error(error, g_steal_pointer(&local_error)); return FALSE; }
+    guint status = soup_message_get_status(message);
+    if (status < 200 || status >= 300) {
+        g_set_error(error, G_IO_ERROR, G_IO_ERROR_FAILED, "NTIS download HTTP status: %u", status);
+        return FALSE;
+    }
+    g_autofree gchar *final_name = g_build_filename(directory, filename, NULL);
+    g_autofree gchar *temp_name = g_strdup_printf("%s.part", final_name);
+    g_autoptr(GFile) temp = g_file_new_for_path(temp_name);
+    g_autoptr(GFile) final = g_file_new_for_path(final_name);
+    g_autoptr(GFileOutputStream) output = g_file_replace(temp, NULL, FALSE, G_FILE_CREATE_NONE, NULL, error);
+    if (output == NULL) return FALSE;
+    if (g_output_stream_splice(G_OUTPUT_STREAM(output), G_INPUT_STREAM(input),
+                               G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE, NULL, error) < 0) {
+        g_file_delete(temp, NULL, NULL); return FALSE;
+    }
+    if (!g_output_stream_close(G_OUTPUT_STREAM(output), NULL, error)) {
+        g_file_delete(temp, NULL, NULL); return FALSE;
+    }
+    if (!g_file_move(temp, final, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error)) {
+        g_file_delete(temp, NULL, NULL); return FALSE;
+    }
+    if (saved_path != NULL) *saved_path = g_steal_pointer(&final_name);
+    return TRUE;
+}
+
+gboolean
+bicmag_ntis_download_file(BicMagNtis *client, const gchar *uri,
+                           const gchar *directory, const gchar *filename,
+                           gchar **saved_path, GError **error)
+{
+    g_return_val_if_fail(client != NULL && uri != NULL, FALSE);
+    g_autoptr(SoupMessage) message = soup_message_new(SOUP_METHOD_GET, uri);
+    if (message == NULL) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Invalid download URI"); return FALSE; }
+    return bicmag_ntis_download_message(client, message, directory, filename, saved_path, error);
+}
+
+gboolean
+bicmag_ntis_download_post_form(BicMagNtis *client, const gchar *uri,
+                                GHashTable *form, const gchar *directory,
+                                const gchar *filename, gchar **saved_path,
+                                GError **error)
+{
+    g_return_val_if_fail(client != NULL && uri != NULL && form != NULL, FALSE);
+    g_autoptr(SoupMessage) message = soup_message_new(SOUP_METHOD_POST, uri);
+    if (message == NULL) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Invalid download URI"); return FALSE; }
+    g_autofree gchar *encoded = soup_form_encode_hash(form);
+    g_autoptr(GBytes) body = g_bytes_new(encoded, strlen(encoded));
+    soup_message_set_request_body_from_bytes(message, "application/x-www-form-urlencoded", body);
+    return bicmag_ntis_download_message(client, message, directory, filename, saved_path, error);
+}

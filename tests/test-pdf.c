@@ -165,6 +165,19 @@ test_ntis_attachment_parser(void)
                                    "https://www.ntis.go.kr/"));
 }
 
+static void
+test_ntis_download_path_safety(void)
+{
+    g_autoptr(BicMagNtis) client = bicmag_ntis_new();
+    g_autoptr(GError) error = NULL;
+    g_autofree gchar *saved = NULL;
+    g_assert_false(bicmag_ntis_download_file(client, "https://example.invalid/file",
+                                              g_get_tmp_dir(), "../escape.pdf",
+                                              &saved, &error));
+    g_assert_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT);
+    g_assert_null(saved);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -178,5 +191,6 @@ main(int argc, char **argv)
     g_test_add_func("/ntis/client", test_ntis_client);
     g_test_add_func("/ntis/list-parser", test_ntis_list_parser);
     g_test_add_func("/ntis/attachment-parser", test_ntis_attachment_parser);
+    g_test_add_func("/ntis/download-path-safety", test_ntis_download_path_safety);
     return g_test_run();
 }
