@@ -5,6 +5,34 @@
 #include <string.h>
 #include "bicmag/cache.h"
 
+static gchar *
+bicmag_mcp_deadline_label(const gchar *deadline_date, GDateTime *today)
+{
+    g_autofree gchar *iso_date = NULL;
+    g_autofree gchar *iso_datetime = NULL;
+
+    g_autoptr(GDateTime) deadline = NULL;
+    gint64 days;
+
+    if (deadline_date == NULL || *deadline_date == '\0') {
+        return g_strdup("마감일 없음");
+    }
+    iso_date = g_strdup(deadline_date);
+    for (gchar *cursor = iso_date; *cursor != '\0'; ++cursor) {
+        if (*cursor == '.') {
+            *cursor = '-';
+        }
+    }
+    iso_datetime = g_strdup_printf("%sT00:00:00+09:00", iso_date);
+    deadline = g_date_time_new_from_iso8601(iso_datetime, NULL);
+    if (deadline == NULL) {
+        return g_strdup("D-?");
+    }
+    days = g_date_time_difference(deadline, today) / G_TIME_SPAN_DAY;
+    return days >= 0 ? g_strdup_printf("D-%" G_GINT64_FORMAT, days) :
+           g_strdup_printf("D+%" G_GINT64_FORMAT, -days);
+}
+
 static void
 bicmag_mcp_error(SoupServerMessage *message, JsonNode *id, gint code,
                  const gchar *text)
@@ -152,12 +180,20 @@ bicmag_mcp_handler(SoupServer *server, SoupServerMessage *message,
         json_builder_add_string_value(builder, "text");
         json_builder_set_member_name(builder, "text");
         g_autoptr(GString) text = g_string_new(NULL);
+        g_autoptr(GDateTime) now = g_date_time_new_now_local();
+        g_autoptr(GDateTime) today = g_date_time_new_local(g_date_time_get_year(now),
+                                                           g_date_time_get_month(now),
+                                                           g_date_time_get_day_of_month(now),
+                                                           0, 0, 0);
         for (guint i = 0; i < notices->len;
              i++) { BicMagNotice *notice = g_ptr_array_index(notices, i);
-                    g_string_append_printf(text, "%s\t%s\t%s\n", notice->id,
+                    g_autofree gchar *dday =
+                        bicmag_mcp_deadline_label(notice->deadline_date, today);
+                    g_string_append_printf(text, "%s\t%s\t%s\t%s\n", notice->id,
                                            notice->deadline_date != NULL &&
                                            *notice->deadline_date != '\0' ?
-                                           notice->deadline_date : "마감일 없음", notice->title);
+                                           notice->deadline_date : "마감일 없음", dday,
+                                           notice->title);
         } json_builder_add_string_value(builder, text->str); json_builder_end_object(builder);
         json_builder_end_array(builder); json_builder_end_object(builder);
     }
