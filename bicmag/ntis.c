@@ -84,8 +84,11 @@ bicmag_ntis_post_form(BicMagNtis *client, const gchar *uri,
 static gboolean
 bicmag_ntis_download_message(BicMagNtis *client, SoupMessage *message,
                               const gchar *directory, const gchar *filename,
-                              gchar **saved_path, GError **error)
+                              gchar **saved_path, guint64 *bytes_written,
+                              gchar **sha256, GError **error)
 {
+    if (bytes_written != NULL) *bytes_written = 0;
+    if (sha256 != NULL) *sha256 = NULL;
     g_return_val_if_fail(client != NULL && client->session != NULL, FALSE);
     g_return_val_if_fail(directory != NULL && filename != NULL, FALSE);
     if (saved_path != NULL) *saved_path = NULL;
@@ -116,10 +119,13 @@ bicmag_ntis_download_message(BicMagNtis *client, SoupMessage *message,
     g_autoptr(GFile) final = g_file_new_for_path(final_name);
     g_autoptr(GFileOutputStream) output = g_file_replace(temp, NULL, FALSE, G_FILE_CREATE_NONE, NULL, error);
     if (output == NULL) return FALSE;
-    if (g_output_stream_splice(G_OUTPUT_STREAM(output), G_INPUT_STREAM(input),
-                               G_OUTPUT_STREAM_SPLICE_CLOSE_SOURCE, NULL, error) < 0) {
-        g_file_delete(temp, NULL, NULL); return FALSE;
+    g_autoptr(GChecksum) checksum = g_checksum_new(G_CHECKSUM_SHA256);
+    guint64 total = 0; guint8 buffer[8192]; gssize n;
+    while ((n = g_input_stream_read(G_INPUT_STREAM(input), buffer, sizeof buffer, NULL, error)) > 0) {
+        if (!g_output_stream_write_all(G_OUTPUT_STREAM(output), buffer, n, NULL, NULL, error)) { g_file_delete(temp, NULL, NULL); return FALSE; }
+        g_checksum_update(checksum, buffer, n); total += (guint64)n;
     }
+    if (n < 0) { g_file_delete(temp, NULL, NULL); return FALSE; }
     if (!g_output_stream_close(G_OUTPUT_STREAM(output), NULL, error)) {
         g_file_delete(temp, NULL, NULL); return FALSE;
     }
@@ -127,6 +133,8 @@ bicmag_ntis_download_message(BicMagNtis *client, SoupMessage *message,
         g_file_delete(temp, NULL, NULL); return FALSE;
     }
     if (saved_path != NULL) *saved_path = g_steal_pointer(&final_name);
+    if (bytes_written != NULL) *bytes_written = total;
+    if (sha256 != NULL) *sha256 = g_strdup(g_checksum_get_string(checksum));
     return TRUE;
 }
 
@@ -138,7 +146,7 @@ bicmag_ntis_download_file(BicMagNtis *client, const gchar *uri,
     g_return_val_if_fail(client != NULL && uri != NULL, FALSE);
     g_autoptr(SoupMessage) message = soup_message_new(SOUP_METHOD_GET, uri);
     if (message == NULL) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Invalid download URI"); return FALSE; }
-    return bicmag_ntis_download_message(client, message, directory, filename, saved_path, error);
+    return bicmag_ntis_download_message(client, message, directory, filename, saved_path, NULL, NULL, error);
 }
 
 gboolean
@@ -153,5 +161,35 @@ bicmag_ntis_download_post_form(BicMagNtis *client, const gchar *uri,
     g_autofree gchar *encoded = soup_form_encode_hash(form);
     g_autoptr(GBytes) body = g_bytes_new(encoded, strlen(encoded));
     soup_message_set_request_body_from_bytes(message, "application/x-www-form-urlencoded", body);
-    return bicmag_ntis_download_message(client, message, directory, filename, saved_path, error);
+    return bicmag_ntis_download_message(client, message, directory, filename, saved_path, NULL, NULL, error);
+}
+
+gboolean
+bicmag_ntis_download_file_with_digest(BicMagNtis *client, const gchar *uri,
+                                       const gchar *directory, const gchar *filename,
+                                       gchar **saved_path, guint64 *bytes_written,
+                                       gchar **sha256, GError **error)
+{
+    g_return_val_if_fail(client != NULL && uri != NULL, FALSE);
+    g_autoptr(SoupMessage) message = soup_message_new(SOUP_METHOD_GET, uri);
+    if (message == NULL) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Invalid download URI"); return FALSE; }
+    return bicmag_ntis_download_message(client, message, directory, filename,
+                                         saved_path, bytes_written, sha256, error);
+}
+
+gboolean
+bicmag_ntis_download_post_form_with_digest(BicMagNtis *client, const gchar *uri,
+                                            GHashTable *form, const gchar *directory,
+                                            const gchar *filename, gchar **saved_path,
+                                            guint64 *bytes_written, gchar **sha256,
+                                            GError **error)
+{
+    g_return_val_if_fail(client != NULL && uri != NULL && form != NULL, FALSE);
+    g_autoptr(SoupMessage) message = soup_message_new(SOUP_METHOD_POST, uri);
+    if (message == NULL) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Invalid download URI"); return FALSE; }
+    g_autofree gchar *encoded = soup_form_encode_hash(form);
+    g_autoptr(GBytes) body = g_bytes_new(encoded, strlen(encoded));
+    soup_message_set_request_body_from_bytes(message, "application/x-www-form-urlencoded", body);
+    return bicmag_ntis_download_message(client, message, directory, filename,
+                                         saved_path, bytes_written, sha256, error);
 }

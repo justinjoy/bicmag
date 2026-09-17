@@ -19,5 +19,22 @@ gboolean bicmag_ntis_download_post_form(BicMagNtis *client, const gchar *uri,
                                         const gchar *directory,
                                         const gchar *filename,
                                         gchar **saved_path, GError **error);
+gboolean bicmag_ntis_download_file_with_digest(BicMagNtis *client,
+                                               const gchar *uri,
+                                               const gchar *directory,
+                                               const gchar *filename,
+                                               gchar **saved_path,
+                                               guint64 *bytes_written,
+                                               gchar **sha256,
+                                               GError **error);
+gboolean bicmag_ntis_download_post_form_with_digest(BicMagNtis *client,
+                                                    const gchar *uri,
+                                                    GHashTable *form,
+                                                    const gchar *directory,
+                                                    const gchar *filename,
+                                                    gchar **saved_path,
+                                                    guint64 *bytes_written,
+                                                    gchar **sha256,
+                                                    GError **error);
 G_END_DECLS
 #endif

@@ -178,6 +178,21 @@ test_ntis_download_path_safety(void)
     g_assert_null(saved);
 }
 
+static void
+test_ntis_digest_arguments(void)
+{
+    g_autoptr(BicMagNtis) client = bicmag_ntis_new();
+    g_autoptr(GError) error = NULL;
+    g_autofree gchar *saved = NULL;
+    g_autofree gchar *digest = NULL;
+    guint64 bytes = 0;
+    g_assert_false(bicmag_ntis_download_file_with_digest(client,
+        "https://example.invalid/file", g_get_tmp_dir(), "../x.pdf",
+        &saved, &bytes, &digest, &error));
+    g_assert_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT);
+    g_assert_null(saved); g_assert_null(digest); g_assert_cmpuint(bytes, ==, 0);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -192,5 +207,6 @@ main(int argc, char **argv)
     g_test_add_func("/ntis/list-parser", test_ntis_list_parser);
     g_test_add_func("/ntis/attachment-parser", test_ntis_attachment_parser);
     g_test_add_func("/ntis/download-path-safety", test_ntis_download_path_safety);
+    g_test_add_func("/ntis/digest-arguments", test_ntis_digest_arguments);
     return g_test_run();
 }
