@@ -73,6 +73,25 @@ bicmag_cache_upsert_attachment(BicMagCache *cache, const gchar *notice_id,
     gboolean ok = sqlite3_step(statement) == SQLITE_DONE; if (!ok) bicmag_cache_set_error(error, cache->database, "upsert attachment"); sqlite3_finalize(statement); return ok;
 }
 
+GPtrArray *
+bicmag_cache_list_attachments(BicMagCache *cache, const gchar *notice_id,
+                               GError **error)
+{
+    g_autoptr(GPtrArray) result = g_ptr_array_new_with_free_func((GDestroyNotify)bicmag_attachment_free);
+    if (cache == NULL || notice_id == NULL) { g_set_error(error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "cache and notice id are required"); return NULL; }
+    sqlite3_stmt *statement = NULL;
+    if (sqlite3_prepare_v2(cache->database, "SELECT id,name,download_url,local_path,sha256 FROM attachments WHERE notice_id = ? ORDER BY id;", -1, &statement, NULL) != SQLITE_OK) { bicmag_cache_set_error(error, cache->database, "prepare attachment list"); return NULL; }
+    sqlite3_bind_text(statement, 1, notice_id, -1, SQLITE_TRANSIENT);
+    int code;
+    while ((code = sqlite3_step(statement)) == SQLITE_ROW) {
+        g_autoptr(BicMagAttachment) item = bicmag_attachment_new();
+        item->id = g_strdup((const gchar *)sqlite3_column_text(statement, 0)); item->notice_id = g_strdup(notice_id); item->name = g_strdup((const gchar *)sqlite3_column_text(statement, 1)); item->download_url = g_strdup((const gchar *)sqlite3_column_text(statement, 2)); item->local_path = g_strdup((const gchar *)sqlite3_column_text(statement, 3)); item->sha256 = g_strdup((const gchar *)sqlite3_column_text(statement, 4));
+        g_ptr_array_add(result, g_steal_pointer(&item));
+    }
+    if (code != SQLITE_DONE) { bicmag_cache_set_error(error, cache->database, "list attachments"); sqlite3_finalize(statement); return NULL; }
+    sqlite3_finalize(statement); return g_steal_pointer(&result);
+}
+
 void
 bicmag_cache_close(BicMagCache *cache)
 {

@@ -10,6 +10,8 @@ typedef struct {
     gchar *notice_id;
     gchar *name;
     gchar *download_url;
+    gchar *local_path;
+    gchar *sha256;
 } BicMagAttachment;
 
 BicMagAttachment *bicmag_attachment_new(void);

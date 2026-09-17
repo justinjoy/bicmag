@@ -158,6 +158,11 @@ test_local_notice_cache(void)
     g_assert_false(bicmag_cache_upsert_attachment(cache, "missing", attachment, "/tmp/doc.pdf", "abc", 2, &error));
     g_assert_nonnull(error);
     g_clear_error(&error);
+    g_autoptr(GPtrArray) attachments = bicmag_cache_list_attachments(cache, "notice-1", &error);
+    g_assert_no_error(error); g_assert_cmpuint(attachments->len, ==, 1);
+    g_assert_cmpstr(((BicMagAttachment *)attachments->pdata[0])->name, ==, "doc.pdf");
+    g_assert_cmpstr(((BicMagAttachment *)attachments->pdata[0])->local_path, ==, "/tmp/doc.pdf");
+    g_assert_cmpstr(((BicMagAttachment *)attachments->pdata[0])->sha256, ==, "abc");
     g_assert_cmpstr(((BicMagNotice *)g_ptr_array_index(results, 0))->id, ==,
                     "notice-1");
     g_autofree gchar *fixture = g_test_build_filename(G_TEST_BUILT, "sample.pdf", NULL);

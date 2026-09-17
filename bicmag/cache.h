@@ -33,6 +33,9 @@ gboolean bicmag_cache_upsert_attachment(BicMagCache *cache,
                                         const gchar *sha256,
                                         gint64 synced_at,
                                         GError **error);
+GPtrArray *bicmag_cache_list_attachments(BicMagCache *cache,
+                                          const gchar *notice_id,
+                                          GError **error);
 
 G_END_DECLS
 

@@ -2,7 +2,7 @@
 #include <string.h>
 
 BicMagAttachment *bicmag_attachment_new(void) { return g_new0(BicMagAttachment, 1); }
-void bicmag_attachment_free(BicMagAttachment *a) { if (!a) return; g_free(a->id); g_free(a->notice_id); g_free(a->name); g_free(a->download_url); g_free(a); }
+void bicmag_attachment_free(BicMagAttachment *a) { if (!a) return; g_free(a->id); g_free(a->notice_id); g_free(a->name); g_free(a->download_url); g_free(a->local_path); g_free(a->sha256); g_free(a); }
 
 GPtrArray *bicmag_ntis_parse_attachments(const gchar *html, const gchar *base_uri, GError **error)
 {
