@@ -3,6 +3,7 @@
 #include "bicmag/cache.h"
 #include "bicmag/ntis.h"
 #include "bicmag/list.h"
+#include "bicmag/attachment.h"
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -147,6 +148,23 @@ test_ntis_list_parser(void)
                                    "https://www.ntis.go.kr/"));
 }
 
+static void
+test_ntis_attachment_parser(void)
+{
+    g_autofree gchar *html = NULL;
+    g_autoptr(GError) error = NULL;
+    g_assert_true(g_file_get_contents("../tests/data/ntis-detail.html", &html, NULL, &error));
+    g_autoptr(GPtrArray) files = bicmag_ntis_parse_attachments(html,
+        "https://www.ntis.go.kr/rndgate/eg/un/ra/view.do", &error);
+    g_assert_no_error(error);
+    g_assert_cmpuint(files->len, ==, 2);
+    g_assert_cmpstr(((BicMagAttachment *)files->pdata[0])->id, ==, "1411335");
+    g_assert_cmpstr(((BicMagAttachment *)files->pdata[0])->notice_id, ==, "20260914100059666JKJ57LNH22");
+    g_assert_cmpstr(((BicMagAttachment *)files->pdata[0])->name, ==, "공고문.pdf");
+    g_assert_true(g_str_has_prefix(((BicMagAttachment *)files->pdata[0])->download_url,
+                                   "https://www.ntis.go.kr/"));
+}
+
 int
 main(int argc, char **argv)
 {
@@ -159,5 +177,6 @@ main(int argc, char **argv)
     g_test_add_func("/cache/local-search", test_local_notice_cache);
     g_test_add_func("/ntis/client", test_ntis_client);
     g_test_add_func("/ntis/list-parser", test_ntis_list_parser);
+    g_test_add_func("/ntis/attachment-parser", test_ntis_attachment_parser);
     return g_test_run();
 }

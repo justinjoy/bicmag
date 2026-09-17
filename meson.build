@@ -36,7 +36,7 @@ cache_lib = static_library('bicmag-cache',
   install : false,
 )
 
-ntis_lib = static_library('bicmag-ntis', ['bicmag/ntis.c', 'bicmag/list.c'],
+ntis_lib = static_library('bicmag-ntis', ['bicmag/ntis.c', 'bicmag/list.c', 'bicmag/attachment.c'],
   include_directories : inc, dependencies : [glib_dep, gio_dep, libsoup_dep])
 
 pdf_test = executable('test-bicmag-pdf',
