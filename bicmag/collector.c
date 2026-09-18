@@ -1,6 +1,7 @@
 #include "bicmag/collector.h"
 
 #include "bicmag/attachment.h"
+#include "bicmag/index.h"
 #include "bicmag/list.h"
 #include "bicmag/notice.h"
 
@@ -51,6 +52,18 @@ bicmag_collector_sync_attachment(BicMagCache *cache,
     return bicmag_cache_upsert_attachment(cache, notice_id, attachment,
                                           attachment->local_path, attachment->sha256,
                                           synced_at, error);
+}
+
+static void
+bicmag_collector_append_index_text(GString *content, const gchar *text)
+{
+    if (text == NULL || *text == '\0') {
+        return;
+    }
+    if (content->len > 0) {
+        g_string_append_c(content, '\n');
+    }
+    g_string_append(content, text);
 }
 
 gboolean
@@ -116,12 +129,31 @@ bicmag_collector_sync(BicMagCache *cache,
         }
         g_autofree gchar *notice_directory = g_build_filename(attachment_directory,
                                                               notice->id, NULL);
+        g_autoptr(GString) indexed_content = g_string_new(NULL);
         for (guint j = 0; j < attachments->len; ++j) {
             BicMagAttachment *attachment = g_ptr_array_index(attachments, j);
             if (!bicmag_collector_sync_attachment(cache, client, attachment, notice->id,
                                                   notice_directory, synced_at, error)) {
                 return FALSE;
             }
+            bicmag_collector_append_index_text(indexed_content, attachment->name);
+            g_autofree gchar *attachment_text = NULL;
+            g_autoptr(GError) extraction_error = NULL;
+            if (bicmag_index_extract_attachment_text(attachment->local_path,
+                                                     &attachment_text,
+                                                     &extraction_error)) {
+                bicmag_collector_append_index_text(indexed_content, attachment_text);
+            } else if (!g_error_matches(extraction_error, G_IO_ERROR,
+                                        G_IO_ERROR_NOT_SUPPORTED)) {
+                g_warning("cannot index attachment %s: %s",
+                          attachment->local_path,
+                          extraction_error != NULL ? extraction_error->message :
+                          "unknown extraction error");
+            }
+        }
+        if (!bicmag_cache_replace_notice_content(cache, notice->id,
+                                                 indexed_content->str, error)) {
+            return FALSE;
         }
     }
     return TRUE;

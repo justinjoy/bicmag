@@ -31,6 +31,22 @@ meson compile -C build
 meson test -C build --print-errorlogs
 ```
 
+## 첨부파일 본문 검색
+
+PDF는 PoDoFo로, HWPX는 시스템의 `bsdtar`로 본문을 추출합니다. HWP 본문 검색에는
+`hwp5html`이 필요합니다. BicMag은 `PATH` 외에도
+`$XDG_DATA_HOME/bicmag/hwp-tools/bin/hwp5html`을 자동으로 확인합니다. 예를 들어
+사용자 전용 가상환경은 다음처럼 준비할 수 있습니다.
+
+```sh
+python -m venv ~/.local/share/bicmag/hwp-tools
+~/.local/share/bicmag/hwp-tools/bin/pip install pyhwp six
+```
+
+HWP 변환 경로를 직접 지정하려면 `BICMAG_HWP5HTML` 환경 변수를 사용합니다. 변환에
+실패하거나 제한시간을 초과한 첨부파일은 파일명만 색인하고 나머지 동기화는 계속합니다.
+검색은 FTS 결과에 유니코드 부분문자열 검색을 합쳐 한글 복합어의 일부도 찾습니다.
+
 Enable the repository pre-commit hook once after cloning:
 
 ```sh

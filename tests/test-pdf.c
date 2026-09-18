@@ -93,6 +93,11 @@ test_text_extraction(void)
     g_assert_no_error(error);
     g_assert_nonnull(text);
     g_assert_nonnull(g_strstr_len(text, -1, "BicMag PDF"));
+
+    g_clear_pointer(&text, g_free);
+    g_assert_true(bicmag_index_extract_attachment_text(fixture, &text, &error));
+    g_assert_no_error(error);
+    g_assert_nonnull(g_strstr_len(text, -1, "BicMag PDF"));
 }
 
 static void
@@ -108,6 +113,38 @@ test_pdf_signature(void)
     g_assert_false(bicmag_pdf_has_signature(path, &error));
     g_assert_error(error, BICMAG_PDF_ERROR, BICMAG_PDF_ERROR_PARSE);
     g_remove(path);
+}
+
+static void
+test_hwp_extraction(void)
+{
+    const gchar *path = g_getenv("BICMAG_TEST_HWP");
+    if (path == NULL) {
+        g_test_skip("BICMAG_TEST_HWP is not set");
+        return;
+    }
+    g_autoptr(GError) error = NULL;
+    g_autofree gchar *text = NULL;
+    g_assert_true(bicmag_index_extract_attachment_text(path, &text, &error));
+    g_assert_no_error(error);
+    g_assert_nonnull(g_strstr_len(text, -1, "EX-grid"));
+    g_assert_nonnull(g_strstr_len(text, -1, "에너지안전"));
+}
+
+static void
+test_hwpx_extraction(void)
+{
+    const gchar *path = g_getenv("BICMAG_TEST_HWPX");
+    if (path == NULL) {
+        g_test_skip("BICMAG_TEST_HWPX is not set");
+        return;
+    }
+    g_autoptr(GError) error = NULL;
+    g_autofree gchar *text = NULL;
+    g_assert_true(bicmag_index_extract_attachment_text(path, &text, &error));
+    g_assert_no_error(error);
+    g_assert_nonnull(g_strstr_len(text, -1, "국가기록관리"));
+    g_assert_nonnull(g_strstr_len(text, -1, "인공지능"));
 }
 
 static void
@@ -166,6 +203,18 @@ test_local_notice_cache(void)
     results = bicmag_cache_search_notices(cache, "태양광", &error);
     g_assert_no_error(error);
     g_assert_nonnull(results);
+    g_assert_cmpuint(results->len, ==, 1);
+    g_clear_pointer(&results, g_ptr_array_unref);
+    results = bicmag_cache_search_notices(cache, "태양", &error);
+    g_assert_no_error(error);
+    g_assert_cmpuint(results->len, ==, 1);
+    g_assert_true(bicmag_cache_replace_notice_content(cache, "notice-1",
+                                                      "원클릭서비스 제출 안내",
+                                                      &error));
+    g_assert_no_error(error);
+    g_clear_pointer(&results, g_ptr_array_unref);
+    results = bicmag_cache_search_notices(cache, "원클릭", &error);
+    g_assert_no_error(error);
     g_assert_cmpuint(results->len, ==, 1);
     g_autoptr(BicMagAttachment) attachment = bicmag_attachment_new();
     attachment->id = g_strdup("file-1"); attachment->name = g_strdup("doc.pdf");
@@ -310,6 +359,8 @@ main(int argc, char **argv)
     g_test_add_func("/pdf/corrupt-file", test_corrupt_file);
     g_test_add_func("/pdf/text-extraction", test_text_extraction);
     g_test_add_func("/pdf/signature", test_pdf_signature);
+    g_test_add_func("/attachment/hwp-extraction", test_hwp_extraction);
+    g_test_add_func("/attachment/hwpx-extraction", test_hwpx_extraction);
     g_test_add_func("/notice/date-rules", test_notice_date_rules);
     g_test_add_func("/cache/local-search", test_local_notice_cache);
     g_test_add_func("/ntis/client", test_ntis_client);

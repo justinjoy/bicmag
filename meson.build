@@ -12,6 +12,7 @@ libsoup_dep = dependency('libsoup-3.0', version : '>=3.0')
 podofo_dep = dependency('libpodofo', version : '>=1.1.0')
 sqlite_dep = dependency('sqlite3')
 json_dep = dependency('json-glib-1.0')
+libxml_dep = dependency('libxml-2.0')
 
 inc = include_directories('.')
 
@@ -40,13 +41,13 @@ cache_lib = static_library('bicmag-cache',
 ntis_lib = static_library('bicmag-ntis', ['bicmag/ntis.c', 'bicmag/list.c', 'bicmag/attachment.c'],
   include_directories : inc, dependencies : [glib_dep, gio_dep, libsoup_dep])
 
-collector_lib = static_library('bicmag-collector', 'bicmag/collector.c',
-  include_directories : inc, link_with : [cache_lib, ntis_lib, notice_lib],
-  dependencies : [glib_dep, gio_dep, libsoup_dep])
-
 index_lib = static_library('bicmag-index', 'bicmag/index.c',
   include_directories : inc, link_with : [pdf_lib, cache_lib],
-  dependencies : [glib_dep, gio_dep, sqlite_dep])
+  dependencies : [glib_dep, gio_dep, sqlite_dep, libxml_dep])
+
+collector_lib = static_library('bicmag-collector', 'bicmag/collector.c',
+  include_directories : inc, link_with : [cache_lib, ntis_lib, notice_lib, index_lib],
+  dependencies : [glib_dep, gio_dep, libsoup_dep, libxml_dep])
 
 pdf_test = executable('test-bicmag-pdf',
   'tests/test-pdf.c',
@@ -61,8 +62,10 @@ configure_file(input : 'tests/data/sample.pdf', output : 'sample.pdf', copy : tr
 test('bicmag-pdf', pdf_test)
 
 bicmag_exe = executable('bicmag', 'bicmag/server.c', include_directories : inc,
-  link_with : [collector_lib, cache_lib, notice_lib, ntis_lib],
-  dependencies : [glib_dep, gio_dep, libsoup_dep, json_dep, sqlite_dep])
+  link_with : [collector_lib, index_lib, pdf_lib, cache_lib, notice_lib, ntis_lib],
+  dependencies : [glib_dep, gio_dep, libsoup_dep, json_dep, sqlite_dep,
+    podofo_dep, libxml_dep],
+  link_language : 'cpp')
 
 uncrustify = find_program('uncrustify', version : '>=0.83.0', required : false)
 if uncrustify.found()

@@ -22,6 +22,11 @@ gboolean bicmag_cache_upsert_notice(BicMagCache *cache,
                                     gint64 synced_at,
                                     GError **error);
 
+gboolean bicmag_cache_replace_notice_content(BicMagCache *cache,
+                                             const gchar *notice_id,
+                                             const gchar *content,
+                                             GError **error);
+
 GPtrArray *bicmag_cache_search_notices(BicMagCache *cache,
                                        const gchar *query,
                                        GError **error);
